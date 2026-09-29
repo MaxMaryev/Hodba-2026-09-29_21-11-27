@@ -1,0 +1,300 @@
+{
+  "rate": 48000,
+  "sources": {
+    "852881": "852881.ogg",
+    "852882": "852882.ogg",
+    "825860": "825860.ogg",
+    "705513": "705513.ogg",
+    "705743": "705743.ogg"
+  },
+  "outputs": {
+    "Wind_Calm_Loop": {
+      "seconds": 90.0,
+      "channels": 2,
+      "rms_db": -28.0,
+      "peak_db": -7.29
+    },
+    "Wind_Gusts_Loop": {
+      "seconds": 90.0,
+      "channels": 2,
+      "rms_db": -23.7,
+      "peak_db": -1.0
+    },
+    "Ash_Hiss_Loop": {
+      "seconds": 40.0,
+      "channels": 1,
+      "rms_db": -26.0,
+      "peak_db": -5.21
+    },
+    "Step_01": {
+      "seconds": 0.34,
+      "channels": 1,
+      "rms_db": -21.85,
+      "peak_db": -5.8,
+      "source": "705513",
+      "at": 17.71,
+      "snr_db": 22.2
+    },
+    "Step_02": {
+      "seconds": 0.32,
+      "channels": 1,
+      "rms_db": -22.53,
+      "peak_db": -3.11,
+      "source": "705513",
+      "at": 23.83,
+      "snr_db": 25.1
+    },
+    "Step_03": {
+      "seconds": 0.6,
+      "channels": 1,
+      "rms_db": -24.38,
+      "peak_db": -1.0,
+      "source": "705513",
+      "at": 39.02,
+      "snr_db": 23.0
+    },
+    "Step_04": {
+      "seconds": 0.73,
+      "channels": 1,
+      "rms_db": -24.6,
+      "peak_db": -1.0,
+      "source": "705513",
+      "at": 41.59,
+      "snr_db": 26.3
+    },
+    "Step_05": {
+      "seconds": 0.52,
+      "channels": 1,
+      "rms_db": -24.57,
+      "peak_db": -2.47,
+      "source": "705513",
+      "at": 74.53,
+      "snr_db": 28.7
+    },
+    "Step_06": {
+      "seconds": 0.66,
+      "channels": 1,
+      "rms_db": -23.19,
+      "peak_db": -2.91,
+      "source": "705513",
+      "at": 81.9,
+      "snr_db": 23.6
+    },
+    "Step_07": {
+      "seconds": 0.57,
+      "channels": 1,
+      "rms_db": -21.85,
+      "peak_db": -1.0,
+      "source": "705513",
+      "at": 89.36,
+      "snr_db": 23.4
+    },
+    "Step_08": {
+      "seconds": 0.51,
+      "channels": 1,
+      "rms_db": -23.2,
+      "peak_db": -5.62,
+      "source": "705513",
+      "at": 92.83,
+      "snr_db": 22.6
+    },
+    "Step_09": {
+      "seconds": 0.37,
+      "channels": 1,
+      "rms_db": -23.86,
+      "peak_db": -1.0,
+      "source": "705513",
+      "at": 96.75,
+      "snr_db": 25.7
+    },
+    "Step_10": {
+      "seconds": 0.44,
+      "channels": 1,
+      "rms_db": -23.17,
+      "peak_db": -1.0,
+      "source": "705513",
+      "at": 97.91,
+      "snr_db": 25.1
+    },
+    "Step_11": {
+      "seconds": 0.63,
+      "channels": 1,
+      "rms_db": -24.77,
+      "peak_db": -3.64,
+      "source": "705513",
+      "at": 103.11,
+      "snr_db": 24.3
+    },
+    "Step_12": {
+      "seconds": 0.66,
+      "channels": 1,
+      "rms_db": -24.89,
+      "peak_db": -1.0,
+      "source": "705513",
+      "at": 117.42,
+      "snr_db": 33.1
+    },
+    "Step_13": {
+      "seconds": 0.64,
+      "channels": 1,
+      "rms_db": -24.3,
+      "peak_db": -1.0,
+      "source": "705513",
+      "at": 124.15,
+      "snr_db": 27.7
+    },
+    "Step_14": {
+      "seconds": 0.61,
+      "channels": 1,
+      "rms_db": -23.75,
+      "peak_db": -1.4,
+      "source": "705513",
+      "at": 125.43,
+      "snr_db": 29.1
+    },
+    "Step_15": {
+      "seconds": 0.52,
+      "channels": 1,
+      "rms_db": -21.69,
+      "peak_db": -5.44,
+      "source": "705513",
+      "at": 142.59,
+      "snr_db": 22.9
+    },
+    "Step_16": {
+      "seconds": 0.58,
+      "channels": 1,
+      "rms_db": -23.7,
+      "peak_db": -4.82,
+      "source": "705513",
+      "at": 150.27,
+      "snr_db": 24.7
+    },
+    "Step_17": {
+      "seconds": 0.64,
+      "channels": 1,
+      "rms_db": -25.73,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 12.34,
+      "snr_db": 36.8
+    },
+    "Step_18": {
+      "seconds": 0.57,
+      "channels": 1,
+      "rms_db": -25.35,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 112.17,
+      "snr_db": 34.7
+    },
+    "Step_19": {
+      "seconds": 0.66,
+      "channels": 1,
+      "rms_db": -23.53,
+      "peak_db": -1.83,
+      "source": "705743",
+      "at": 116.85,
+      "snr_db": 37.3
+    },
+    "Step_20": {
+      "seconds": 0.54,
+      "channels": 1,
+      "rms_db": -24.33,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 129.23,
+      "snr_db": 32.5
+    },
+    "Step_21": {
+      "seconds": 0.53,
+      "channels": 1,
+      "rms_db": -25.62,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 143.67,
+      "snr_db": 35.7
+    },
+    "Step_22": {
+      "seconds": 0.45,
+      "channels": 1,
+      "rms_db": -25.4,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 145.67,
+      "snr_db": 37.3
+    },
+    "Step_23": {
+      "seconds": 0.43,
+      "channels": 1,
+      "rms_db": -21.04,
+      "peak_db": -1.5,
+      "source": "705743",
+      "at": 148.8,
+      "snr_db": 32.1
+    },
+    "Step_24": {
+      "seconds": 0.45,
+      "channels": 1,
+      "rms_db": -22.2,
+      "peak_db": -2.37,
+      "source": "705743",
+      "at": 190.7,
+      "snr_db": 40.8
+    },
+    "Step_25": {
+      "seconds": 0.46,
+      "channels": 1,
+      "rms_db": -23.91,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 204.83,
+      "snr_db": 38.8
+    },
+    "Step_26": {
+      "seconds": 0.45,
+      "channels": 1,
+      "rms_db": -23.84,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 212.45,
+      "snr_db": 33.3
+    },
+    "Step_27": {
+      "seconds": 0.59,
+      "channels": 1,
+      "rms_db": -24.48,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 217.38,
+      "snr_db": 33.3
+    },
+    "Step_28": {
+      "seconds": 0.54,
+      "channels": 1,
+      "rms_db": -24.94,
+      "peak_db": -1.71,
+      "source": "705743",
+      "at": 219.99,
+      "snr_db": 39.1
+    },
+    "Step_29": {
+      "seconds": 0.42,
+      "channels": 1,
+      "rms_db": -24.64,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 232.36,
+      "snr_db": 34.3
+    },
+    "Step_30": {
+      "seconds": 0.56,
+      "channels": 1,
+      "rms_db": -25.92,
+      "peak_db": -1.0,
+      "source": "705743",
+      "at": 269.68,
+      "snr_db": 35.3
+    }
+  }
+}

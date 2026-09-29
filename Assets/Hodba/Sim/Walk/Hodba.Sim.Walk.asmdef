@@ -1,0 +1,14 @@
+{
+    "name": "Hodba.Sim.Walk",
+    "rootNamespace": "Hodba.Sim.Walk",
+    "references": ["Hodba.Core", "Hodba.World.Contract"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

@@ -1,0 +1,4 @@
+__pycache__/
+*.log
+*.blend1
+run-unity-build.json

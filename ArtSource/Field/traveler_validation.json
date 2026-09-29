@@ -1,0 +1,50 @@
+{
+  "triangles": 7976,
+  "height_m": 1.75,
+  "dimensions_m": [
+    1.5753847360610962,
+    0.5889999866485596,
+    1.75
+  ],
+  "unweighted_vertices": 0,
+  "bone_names": [
+    "Hips",
+    "Spine",
+    "Chest",
+    "Neck",
+    "Head",
+    "LeftShoulder",
+    "LeftUpperArm",
+    "LeftLowerArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightUpperArm",
+    "RightLowerArm",
+    "RightHand",
+    "LeftUpperLeg",
+    "LeftLowerLeg",
+    "LeftFoot",
+    "LeftToes",
+    "RightUpperLeg",
+    "RightLowerLeg",
+    "RightFoot",
+    "RightToes"
+  ],
+  "animation_names": [
+    "Idle_Breathing",
+    "Walk_Tired"
+  ],
+  "loop_endpoints_identical": true,
+  "root_motion": false,
+  "texture_size": [
+    1024,
+    1024
+  ],
+  "rest_pose": "T pose; Blender Z up, -Y forward",
+  "fbx_axes": "-Z forward, Y up",
+  "walk_cycle_seconds": 1.2,
+  "intended_game_speed_mps": 1.3,
+  "idle_cycle_seconds": 4.0,
+  "fbx_roundtrip_valid": true,
+  "fbx_roundtrip_bones": 21
+}

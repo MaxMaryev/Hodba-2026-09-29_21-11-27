@@ -1,0 +1,22 @@
+{
+    "name": "Hodba.Client",
+    "rootNamespace": "Hodba.Client",
+    "references": [
+        "Hodba.Core",
+        "Hodba.World.Contract",
+        "Hodba.World.Gen.Flat",
+        "Hodba.Sim.Walk",
+        "Unity.InputSystem",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

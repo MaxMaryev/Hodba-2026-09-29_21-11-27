@@ -1,0 +1,99 @@
+{
+  "seed": 29092026,
+  "generator": "Blender Python / NumPy; no external images",
+  "materials": {
+    "T1_Ash": {
+      "size_m": [
+        2,
+        2
+      ],
+      "resolution": [
+        2048,
+        2048
+      ],
+      "height_range_m": [
+        -0.002,
+        0.002
+      ],
+      "actual_height_range_m": [
+        -0.0013623624108731747,
+        0.0013108912389725447
+      ],
+      "seam_max": 0.0,
+      "normal_length_error": 1.1920928955078125e-07,
+      "normal_convention": "+Y / OpenGL",
+      "height_bit_depth": 16
+    },
+    "T2_Ripples": {
+      "size_m": [
+        4,
+        4
+      ],
+      "resolution": [
+        2048,
+        2048
+      ],
+      "height_range_m": [
+        -0.003,
+        0.024
+      ],
+      "actual_height_range_m": [
+        -0.00169180310331285,
+        0.01945016160607338
+      ],
+      "seam_max": 0.0,
+      "normal_length_error": 1.1920928955078125e-07,
+      "normal_convention": "+Y / OpenGL",
+      "height_bit_depth": 16
+    },
+    "T3_Crust": {
+      "size_m": [
+        4,
+        4
+      ],
+      "resolution": [
+        2048,
+        2048
+      ],
+      "height_range_m": [
+        -0.013,
+        0.006
+      ],
+      "actual_height_range_m": [
+        -0.010549980215728283,
+        0.003207392990589142
+      ],
+      "seam_max": 0.0,
+      "normal_length_error": 1.7881393432617188e-07,
+      "normal_convention": "+Y / OpenGL",
+      "height_bit_depth": 16
+    }
+  },
+  "encoding": {
+    "albedo": "sRGB",
+    "other_maps": "linear",
+    "height": "unsigned 16-bit linear; decode min + sample*(max-min)",
+    "metallic_smoothness": "R=metallic=0, G=0, B=0, A=1-roughness",
+    "seam_method": "periodic fields; duplicated boundary texel; wrapped central derivatives"
+  },
+  "footprint_depth_m": 0.019999999552965164,
+  "footprint_mirror_error": 0.0,
+  "footprint": {
+    "size_m": [
+      0.14,
+      0.32
+    ],
+    "height_range_m": [
+      -0.02,
+      0.006
+    ],
+    "resolution": [
+      256,
+      512
+    ],
+    "seamless": false,
+    "alpha": "albedo alpha; height and normal use same mask",
+    "right": "mirrored left; tangent normal X inverted",
+    "raised_rim_m": 0.0044703916646540165
+  }
+}

@@ -1,0 +1,249 @@
+{
+  "blender": "4.5.9 LTS",
+  "seed": 29092026,
+  "windward_unity": "+Z",
+  "models": [
+    {
+      "name": "M1_01_Flat",
+      "target_m": 0.05,
+      "max_dimension_m": 0.05000000074505806,
+      "dimensions_m": [
+        0.05000000074505806,
+        0.04051591083407402,
+        0.010725111700594425
+      ],
+      "triangles": 224,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 5.09758820044226e-06,
+      "signed_volume": 1.1805372988145735e-05,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M1_01_Flat.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M1_02_Angular",
+      "target_m": 0.08,
+      "max_dimension_m": 0.07999999821186066,
+      "dimensions_m": [
+        0.07999999821186066,
+        0.06895195692777634,
+        0.038237638771533966
+      ],
+      "triangles": 224,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 2.7327490897732787e-05,
+      "signed_volume": 0.0001039158072095934,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M1_02_Angular.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M1_03_Rounded",
+      "target_m": 0.12,
+      "max_dimension_m": 0.11999999731779099,
+      "dimensions_m": [
+        0.11999999731779099,
+        0.10879044979810715,
+        0.05243992805480957
+      ],
+      "triangles": 224,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 5.8894995163427666e-05,
+      "signed_volume": 0.00036916218841184686,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M1_03_Rounded.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M1_04_Split",
+      "target_m": 0.16,
+      "max_dimension_m": 0.1599999964237213,
+      "dimensions_m": [
+        0.1236952692270279,
+        0.1599999964237213,
+        0.07956138253211975
+      ],
+      "triangles": 224,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 4.962924140272662e-05,
+      "signed_volume": 0.0008816902172448098,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M1_04_Split.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M1_05_Elongated",
+      "target_m": 0.22,
+      "max_dimension_m": 0.2199999988079071,
+      "dimensions_m": [
+        0.2199999988079071,
+        0.07912178337574005,
+        0.05809664726257324
+      ],
+      "triangles": 224,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 6.180752825457603e-05,
+      "signed_volume": 0.000546626435109363,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M1_05_Elongated.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M1_06_Wedge",
+      "target_m": 0.28,
+      "max_dimension_m": 0.2800000011920929,
+      "dimensions_m": [
+        0.2800000011920929,
+        0.20053499937057495,
+        0.08459990471601486
+      ],
+      "triangles": 224,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 0.00015739849186502397,
+      "signed_volume": 0.002012135843900884,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M1_06_Wedge.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M1_07_Squat",
+      "target_m": 0.34,
+      "max_dimension_m": 0.3400000035762787,
+      "dimensions_m": [
+        0.3400000035762787,
+        0.31804120540618896,
+        0.06391007453203201
+      ],
+      "triangles": 224,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 0.00021887707407586277,
+      "signed_volume": 0.0037497483758230587,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M1_07_Squat.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M1_08_Asymmetric",
+      "target_m": 0.4,
+      "max_dimension_m": 0.4000000059604645,
+      "dimensions_m": [
+        0.4000000059604645,
+        0.2925344705581665,
+        0.15965262055397034
+      ],
+      "triangles": 224,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 0.0005537284887395799,
+      "signed_volume": 0.010177936232740247,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M1_08_Asymmetric.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M2_01",
+      "target_m": 0.6,
+      "max_dimension_m": 0.6000000238418579,
+      "dimensions_m": [
+        0.5998554825782776,
+        0.6000000238418579,
+        0.293511301279068
+      ],
+      "triangles": 816,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 0.0004225084849167615,
+      "signed_volume": 0.049270773560380766,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M2_01.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M2_02",
+      "target_m": 1.2,
+      "max_dimension_m": 1.2000000476837158,
+      "dimensions_m": [
+        0.9622353911399841,
+        1.2000000476837158,
+        0.729444682598114
+      ],
+      "triangles": 816,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 0.0013369080843403935,
+      "signed_volume": 0.3706426368314108,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M2_02.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    },
+    {
+      "name": "M2_03",
+      "target_m": 1.8,
+      "max_dimension_m": 1.7999999523162842,
+      "dimensions_m": [
+        1.7999999523162842,
+        1.6070692539215088,
+        0.644184947013855
+      ],
+      "triangles": 816,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "degenerate_faces": 0,
+      "min_triangle_area": 0.0026804518420249224,
+      "signed_volume": 0.8914365908757171,
+      "base_z": 0.0,
+      "uv_in_atlas_tile": true,
+      "pivot_center_xy": true,
+      "fbx": "Assets/Art/Field/Models/M2_03.fbx",
+      "passed": true,
+      "fbx_roundtrip_passed": true
+    }
+  ]
+}
