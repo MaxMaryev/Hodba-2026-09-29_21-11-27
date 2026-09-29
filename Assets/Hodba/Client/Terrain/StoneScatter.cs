@@ -15,6 +15,7 @@ namespace Hodba.Client
         sealed class Layer
         {
             public readonly List<Mesh> Meshes = new List<Mesh>();
+            public bool External;
             public readonly List<List<Matrix4x4>> Matrices = new List<List<Matrix4x4>>();
             public long LastCx = long.MinValue, LastCz = long.MinValue;
         }
@@ -25,16 +26,18 @@ namespace Hodba.Client
         readonly FloatingOrigin _origin;
         readonly FieldConfig _config;
         readonly Material _material;
+        readonly Material _boulderMaterial;
         readonly Layer _stones = new Layer();
         readonly Layer _boulders = new Layer();
         readonly Matrix4x4[] _batch = new Matrix4x4[1023];
 
-        public StoneScatter(IWorldQuery world, FloatingOrigin origin, FieldConfig config, Material material)
+        public StoneScatter(IWorldQuery world, FloatingOrigin origin, FieldConfig config, Material material, Material boulderMaterial)
         {
             _world = world;
             _origin = origin;
             _config = config;
             _material = material;
+            _boulderMaterial = boulderMaterial != null ? boulderMaterial : material;
 
             Fill(_stones, config.stoneMeshes, 6, 0.45f);
             Fill(_boulders, config.boulderMeshes, 3, 0.7f);
@@ -46,8 +49,8 @@ namespace Hodba.Client
         {
             Rebuild(_stones, focus, _config.stoneCellSize, _config.stoneRadius, StoneSalt, false);
             Rebuild(_boulders, focus, _config.boulderCellSize, _config.boulderRadius, BoulderSalt, true);
-            Draw(_stones, true);
-            Draw(_boulders, true);
+            Draw(_stones, _material);
+            Draw(_boulders, _boulderMaterial);
         }
 
         static void Fill(Layer layer, List<Mesh> external, int procedural, float flatness)
@@ -55,6 +58,9 @@ namespace Hodba.Client
             if (external != null)
                 foreach (var m in external)
                     if (m != null) layer.Meshes.Add(m);
+            layer.External = layer.Meshes.Count > 0;
+            // От мелкого к крупному: мелких камней в мире больше.
+            layer.Meshes.Sort((a, b) => Footprint(a).CompareTo(Footprint(b)));
 
             if (layer.Meshes.Count == 0)
                 for (int i = 0; i < procedural; i++)
@@ -92,16 +98,38 @@ namespace Hodba.Client
                     uint s = Hash.Next(h, (uint)k + 1);
                     long px = x * cellMm + (long)(Hash.Unit(Hash.Next(s, 1)) * cellMm);
                     long pz = z * cellMm + (long)(Hash.Unit(Hash.Next(s, 2)) * cellMm);
-                    Vector2 range = boulders ? _config.boulderSize : _config.stoneSize;
-                    float size = Mathf.Lerp(range.x, range.y, Mathf.Pow(Hash.Unit(Hash.Next(s, 3)), 2.5f));
-                    int variant = (int)(Hash.Next(s, 4) % (uint)layer.Meshes.Count);
+                    float skew = Mathf.Pow(Hash.Unit(Hash.Next(s, 3)), boulders ? 1.5f : 2.5f);
                     float yaw = Hash.Unit(Hash.Next(s, 5)) * 360f;
                     float tilt = (Hash.Unit(Hash.Next(s, 6)) - 0.5f) * 14f;
 
-                    var mesh = layer.Meshes[variant];
+                    int variant;
+                    float scale;
+                    Mesh mesh;
+                    if (layer.External && _config.authoredStoneSizes)
+                    {
+                        // Модель уже своего размера: мелкие варианты выпадают чаще, размер чуть гуляет.
+                        variant = Mathf.Min(layer.Meshes.Count - 1, (int)(skew * layer.Meshes.Count));
+                        mesh = layer.Meshes[variant];
+                        scale = Mathf.Lerp(0.85f, 1.15f, Hash.Unit(Hash.Next(s, 4)));
+                    }
+                    else
+                    {
+                        Vector2 range = boulders ? _config.boulderSize : _config.stoneSize;
+                        float size = Mathf.Lerp(range.x, range.y, skew);
+                        variant = (int)(Hash.Next(s, 4) % (uint)layer.Meshes.Count);
+                        mesh = layer.Meshes[variant];
+                        scale = size / Mathf.Max(0.001f, Footprint(mesh));
+                    }
+
+                    // У валунов М2 нанос пепла смотрит на +Z — разворачиваем его навстречу ветру.
+                    if (boulders && layer.External)
+                    {
+                        yaw = _config.prevailingWind + 180f + (Hash.Unit(Hash.Next(s, 5)) - 0.5f) * 40f;
+                        tilt *= 0.3f;
+                    }
+
                     var b = mesh.bounds.size;
-                    float scale = size / Mathf.Max(0.001f, Mathf.Max(b.x, b.z));
-                    float sink = b.y * scale * (boulders ? 0.3f : 0.2f);
+                    float sink = b.y * scale * (layer.External ? 0.05f : boulders ? 0.3f : 0.2f);
 
                     float y = _world.SampleHeightMm(px, pz) / 1000f - sink;
                     var pos = _origin.ToLocal(px, pz, y);
@@ -111,12 +139,14 @@ namespace Hodba.Client
             }
         }
 
-        void Draw(Layer layer, bool castShadows)
+        static float Footprint(Mesh m) => Mathf.Max(m.bounds.size.x, m.bounds.size.z);
+
+        void Draw(Layer layer, Material material)
         {
-            if (_material == null) return;
-            var rp = new RenderParams(_material)
+            if (material == null) return;
+            var rp = new RenderParams(material)
             {
-                shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off,
+                shadowCastingMode = ShadowCastingMode.On,
                 receiveShadows = true,
                 worldBounds = new Bounds(Vector3.zero, Vector3.one * 100000f),
             };

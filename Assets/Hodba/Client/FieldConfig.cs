@@ -117,6 +117,10 @@ namespace Hodba.Client
         public List<Mesh> stoneMeshes = new List<Mesh>();
         public List<Mesh> boulderMeshes = new List<Mesh>();
         public Material stoneMaterial;
+        [Tooltip("Материал валунов. Пусто — как у камней.")]
+        public Material boulderMaterial;
+        [Tooltip("Модели со стороны уже нужного размера (М1: 5–40 см, М2: 0,6–1,8 м) — не масштабировать под диапазон.")]
+        public bool authoredStoneSizes = true;
         public float stoneCellSize = 16f;
         [Tooltip("Среднее число мелких камней на клетку.")]
         public float stonesPerCell = 1.4f;

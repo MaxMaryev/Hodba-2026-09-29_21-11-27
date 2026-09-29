@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_Sky
-  m_Shader: {fileID: 4800000, guid: b541b63643806274dac23bf023e94e67, type: 3}
+  m_Name: M_FootprintLit
+  m_Shader: {fileID: 4800000, guid: a2a6bd4901e235647a47817fbb1aa0ac, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -22,20 +22,20 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 0b21f529ce8e37441976968f56d7ebda, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: 0f3931d2e8d84c6439b1bb903dd8fe16, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _HazeHeight: 0.12
-    - _HorizonCurve: 0.45
-    - _StarDensity: 0.995
-    - _StarIntensity: 0
-    - _SunGlow: 1
-    - _SunSize: 0.6
-    m_Colors:
-    - _HazeColor: {r: 0.81, g: 0.78, b: 0.74, a: 1}
-    - _HorizonColor: {r: 0.85, g: 0.83, b: 0.78999996, a: 1}
-    - _SunColor: {r: 1, g: 0.95, b: 0.88, a: 1}
-    - _SunDir: {r: 0, g: 0.5, b: 0.87, a: 0}
-    - _ZenithColor: {r: 0.53999996, g: 0.62, b: 0.7, a: 1}
+    - _NormalStrength: 1
+    - _Strength: 1
+    - _Wrap: 0.3
+    m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

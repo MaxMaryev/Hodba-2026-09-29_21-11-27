@@ -452,9 +452,22 @@ MonoBehaviour:
   lod1Resolution: 32
   lod2Resolution: 8
   chunksPerFrame: 2
-  stoneMeshes: []
-  boulderMeshes: []
-  stoneMaterial: {fileID: 2100000, guid: 1526fb920db051d4ca452ad8369d5b55, type: 2}
+  stoneMeshes:
+  - {fileID: 4300000, guid: 8d9800b188e4596489e74bb1a047c5b8, type: 2}
+  - {fileID: 4300000, guid: d9d73a3aa4f6b794ba1e035a84fd3997, type: 2}
+  - {fileID: 4300000, guid: cb6cdbe282fc27c4994e538f99dfb6a3, type: 2}
+  - {fileID: 4300000, guid: f4be29120b7f9264fa753ce5e8ef1c5c, type: 2}
+  - {fileID: 4300000, guid: 203df384e0d5ea045bff7b87318b7043, type: 2}
+  - {fileID: 4300000, guid: 0efd3d6b7b292b54885b361d79adc7af, type: 2}
+  - {fileID: 4300000, guid: f02165d1714cff0459c2cd01fe093cc2, type: 2}
+  - {fileID: 4300000, guid: 635c171e1b8c9ed40a85702a1538c120, type: 2}
+  boulderMeshes:
+  - {fileID: 4300000, guid: 7cdb4199f7b4d9c4f95737b80c47d73d, type: 2}
+  - {fileID: 4300000, guid: 35a271be512801c4b85eae2cae4d1dc6, type: 2}
+  - {fileID: 4300000, guid: c31551c762533fa4cad1c3136c3a8239, type: 2}
+  stoneMaterial: {fileID: 2100000, guid: 08d8c76932bd26041b5053541cd7533d, type: 2}
+  boulderMaterial: {fileID: 2100000, guid: 4ec4e9a056cc02a4aa360bfa2bb53dea, type: 2}
+  authoredStoneSizes: 1
   stoneCellSize: 16
   stonesPerCell: 1.4
   stoneSize: {x: 0.05, y: 0.4}
@@ -511,19 +524,19 @@ MonoBehaviour:
   ashHissVolume: 0.4
   footprintMax: 1500
   footprintLifetimeMinutes: 180
-  footprintSize: {x: 0.13, y: 0.3}
+  footprintSize: {x: 0.14, y: 0.32}
   footprintOffset: 0.12
   footprintTexture: {fileID: 0}
   groundMaterial: {fileID: 2100000, guid: 317b0fa68f8cea64bb45c015860df9ab, type: 2}
   skyMaterial: {fileID: 2100000, guid: 0a27f2ef0af31944299b1e8ccb78467d, type: 2}
-  footprintMaterial: {fileID: 2100000, guid: e272e13ca9c5c6441885612289f97691, type: 2}
+  footprintMaterial: {fileID: 2100000, guid: 326dbd3b6ff59794eb5950782716387f, type: 2}
   dustMaterial: {fileID: 2100000, guid: bc8d2c82cdd36124081e6ca22dae03b9, type: 2}
   driftMaterial: {fileID: 2100000, guid: 84942297a49b02c4ca81cebba00fc13b, type: 2}
   volumeProfile: {fileID: 11400000, guid: b3a8a700ffce60f41a0798caf0d12756, type: 2}
-  ashAlbedo: {fileID: 0}
-  ashNormal: {fileID: 0}
-  rippleNormal: {fileID: 0}
-  packedAlbedo: {fileID: 0}
-  walkerPrefab: {fileID: 0}
+  ashAlbedo: {fileID: 2800000, guid: 22a0a36c826870c45a69a3f50490417a, type: 3}
+  ashNormal: {fileID: 2800000, guid: 5575401ef63e2f340bd0276f86b9cabe, type: 3}
+  rippleNormal: {fileID: 2800000, guid: 01ad4d0fad9f63048b3f9224131e2db5, type: 3}
+  packedAlbedo: {fileID: 2800000, guid: 0a44368f6b18e5c40bddd96ea5e46a2c, type: 3}
+  walkerPrefab: {fileID: 5881506588838914867, guid: 098b1554d3867654cb2673ca463c0fa0, type: 3}
   continueFromSave: 1
   backgroundMaxHours: 168

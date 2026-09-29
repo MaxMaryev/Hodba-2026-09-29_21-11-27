@@ -53,7 +53,9 @@ namespace Hodba.Client
 
             if (_animator == null) return;
             if (_hasSpeed) _animator.SetFloat(SpeedId, sim.Speed);
-            else _animator.speed = sim.Params.BaseSpeed > 0f ? Mathf.Max(0.15f, sim.Speed / sim.Params.BaseSpeed) : 1f;
+            // Шаг анимации под настоящую скорость: клип ходьбы записан на ~1,3 м/с.
+            float walk = sim.Params.BaseSpeed > 0f ? sim.Speed / sim.Params.BaseSpeed : 0f;
+            _animator.speed = walk > 0.1f ? Mathf.Max(0.3f, walk) : 1f;
         }
 
         void Part(PrimitiveType type, Vector3 pos, Vector3 scale, Material material)

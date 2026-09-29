@@ -85,7 +85,7 @@ namespace Hodba.Client
             ApplyExternalTextures();
             _terrain = new TerrainStreamer(_world, _origin, config, config.groundMaterial);
             _terrain.BuildAll(_sim.Position);
-            _stones = new StoneScatter(_world, _origin, config, config.stoneMaterial);
+            _stones = new StoneScatter(_world, _origin, config, config.stoneMaterial, config.boulderMaterial);
             _footprints = new Footprints(_world, _origin, config, config.footprintMaterial);
 
             _windAudio = WindSynth.Create(camera.transform, config.windLoop, config.windGustLoop, config.ashHissLoop);
@@ -192,8 +192,7 @@ namespace Hodba.Client
             var light = go.AddComponent<Light>();
             light.type = LightType.Directional;
             light.shadows = LightShadows.Soft;
-            light.shadowBias = 0.05f;
-            light.shadowNormalBias = 0.4f;
+            // Смещения теней берутся из HodbaURP.asset (Hodba ▸ Setup Field).
             return light;
         }
 
@@ -211,12 +210,15 @@ namespace Hodba.Client
         {
             var m = config.groundMaterial;
             if (m == null) return;
-            if (config.ashAlbedo != null)
+            // Готовый цвет (Т1+Т3) — только когда есть оба, иначе заглушка второго стала бы тёмно-серой.
+            if (config.ashAlbedo != null && config.packedAlbedo != null)
             {
                 m.SetTexture("_AshAlbedo", config.ashAlbedo);
+                m.SetTexture("_PackedAlbedo", config.packedAlbedo);
                 m.SetFloat("_AlbedoMode", 1f);
+                m.SetColor("_AshColor", Color.white);
+                m.SetColor("_PackedColor", Color.white);
             }
-            if (config.packedAlbedo != null) m.SetTexture("_PackedAlbedo", config.packedAlbedo);
             if (config.ashNormal != null) m.SetTexture("_AshNormal", config.ashNormal);
             if (config.rippleNormal != null) m.SetTexture("_RippleNormal", config.rippleNormal);
             if (config.footprintTexture != null && config.footprintMaterial != null)

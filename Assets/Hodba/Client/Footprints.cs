@@ -27,6 +27,8 @@ namespace Hodba.Client
         Print[] _prints;
         int _head, _count;
         Vector3[] _verts;
+        Vector3[] _normals;
+        Vector4[] _tangents;
         Color32[] _colors;
         Vector2[] _uvs;
         int[] _indices;
@@ -50,6 +52,8 @@ namespace Hodba.Client
         {
             _prints = new Print[capacity];
             _verts = new Vector3[capacity * 4];
+            _normals = new Vector3[capacity * 4];
+            _tangents = new Vector4[capacity * 4];
             _colors = new Color32[capacity * 4];
             _uvs = new Vector2[capacity * 4];
             _indices = new int[capacity * 6];
@@ -129,6 +133,15 @@ namespace Hodba.Client
                 var c = new Color32(255, 255, 255, (byte)(fade * 255f));
                 _colors[v] = _colors[v + 1] = _colors[v + 2] = _colors[v + 3] = c;
 
+                // Касательная — вдоль u. У правого следа u отражён, поэтому и она смотрит в другую сторону;
+                // w подобран так, чтобы битангенс всегда смотрел вперёд по ходу (вдоль v).
+                var tangent = p.Left ? new Vector4(right.x, 0f, right.z, -1f) : new Vector4(-right.x, 0f, -right.z, 1f);
+                for (int k = 0; k < 4; k++)
+                {
+                    _normals[v + k] = Vector3.up;
+                    _tangents[v + k] = tangent;
+                }
+
                 int t = q * 6;
                 _indices[t + 0] = v; _indices[t + 1] = v + 1; _indices[t + 2] = v + 2;
                 _indices[t + 3] = v; _indices[t + 4] = v + 2; _indices[t + 5] = v + 3;
@@ -137,6 +150,8 @@ namespace Hodba.Client
 
             _mesh.Clear();
             _mesh.SetVertices(_verts, 0, q * 4);
+            _mesh.SetNormals(_normals, 0, q * 4);
+            _mesh.SetTangents(_tangents, 0, q * 4);
             _mesh.SetUVs(0, _uvs, 0, q * 4);
             _mesh.SetColors(_colors, 0, q * 4);
             _mesh.SetIndices(_indices, 0, q * 6, MeshTopology.Triangles, 0, false);

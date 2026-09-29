@@ -87,6 +87,8 @@ namespace Hodba.Editor
                 if (config.stoneMaterial == null) config.stoneMaterial = stone;
                 config.volumeProfile = volume;
                 AssignAudio(config);
+                EditorUtility.DisplayProgressBar("Hodba", "Модели и текстуры", 0.85f);
+                FieldArt.Assign(config, stone);
                 EditorUtility.SetDirty(config);
 
                 SetupPlayer();
@@ -152,9 +154,14 @@ namespace Hodba.Editor
             asset.supportsHDR = true;
             asset.msaaSampleCount = 2;
             asset.renderScale = 0.85f;
-            asset.shadowDistance = 45f;
-            asset.shadowCascadeCount = 1;
-            asset.mainLightShadowmapResolution = 1024;
+            // Тени — главная картинка рассвета: длинная тень путника и тени внутри следов.
+            // Первый каскад (~10 м) — чёткие следы и камни под ногами, второй — хвост тени на низком солнце.
+            asset.shadowDistance = 35f;
+            asset.shadowCascadeCount = 2;
+            asset.cascade2Split = 0.3f;
+            asset.mainLightShadowmapResolution = 2048;
+            asset.shadowDepthBias = 0.5f;
+            asset.shadowNormalBias = 0.3f; // больше — «съедает» ноги и край плаща
 
             var so = new SerializedObject(asset);
             Set(so, "m_MainLightShadowsSupported", true);
