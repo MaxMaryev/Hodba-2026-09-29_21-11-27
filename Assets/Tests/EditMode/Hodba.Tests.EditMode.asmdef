@@ -6,6 +6,8 @@
         "Hodba.World.Contract",
         "Hodba.World.Gen.Flat",
         "Hodba.Sim.Walk",
+        "Hodba.Client.Body",
+        "Hodba.Client",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

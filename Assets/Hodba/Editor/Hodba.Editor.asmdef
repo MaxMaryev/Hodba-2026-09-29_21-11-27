@@ -3,6 +3,9 @@
     "rootNamespace": "Hodba.Editor",
     "references": [
         "Hodba.Client",
+        "Hodba.Client.Body",
+        "Hodba.Core",
+        "Hodba.World.Contract",
         "Hodba.Sim.Walk",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime"

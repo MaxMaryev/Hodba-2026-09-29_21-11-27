@@ -17,6 +17,8 @@ namespace Hodba.Sim.Walk
         public float MaxTurnRate;
         /// <summary>Длина шага, м.</summary>
         public float StepLength;
+        /// <summary>Сколько скорости отнимает самый рыхлый пепел, доля. Стартовое значение, подбирается.</summary>
+        public float LoosenessDrag;
 
         public static WalkParams Default => new WalkParams
         {
@@ -25,6 +27,7 @@ namespace Hodba.Sim.Walk
             DecelTime = 0.8f,
             MaxTurnRate = 25f,
             StepLength = 0.72f,
+            LoosenessDrag = 0.2f,
         };
     }
 
@@ -54,6 +57,9 @@ namespace Hodba.Sim.Walk
 
         /// <summary>Скорость поворота курса в этом кадре, °/с (для крена камеры).</summary>
         public float TurnRate { get; private set; }
+
+        /// <summary>Рыхлость под ногами: 0 — твёрдо, 1 — вязнешь.</summary>
+        public float Looseness { get; private set; }
 
         WorldPos _position;
         double _remX, _remZ; // доли миллиметра, чтобы медленная ходьба не терялась при округлении
@@ -93,8 +99,11 @@ namespace Hodba.Sim.Walk
             double dirZ = Math.Cos(rad);
 
             Slope = SampleSlope(world, dirX, dirZ);
+            Looseness = world.SampleSurface(_position.X, _position.Z).Looseness / 65535f;
 
-            float target = WantsWalk ? Params.BaseSpeed * ToblerFactor(Slope) * AttentionFactor : 0f;
+            float target = WantsWalk
+                ? Params.BaseSpeed * ToblerFactor(Slope) * LoosenessFactor(Looseness, Params.LoosenessDrag) * AttentionFactor
+                : 0f;
             float rate = target > Speed
                 ? Params.BaseSpeed / Math.Max(0.01f, Params.AccelTime)
                 : Params.BaseSpeed / Math.Max(0.01f, Params.DecelTime);
@@ -141,6 +150,9 @@ namespace Hodba.Sim.Walk
             double flat = Math.Exp(-3.5 * 0.05);
             return (float)(Math.Exp(-3.5 * Math.Abs(slope + 0.05)) / flat);
         }
+
+        /// <summary>В рыхлом часть усилия уходит в землю: нога проседает, отталкивание вязнет.</summary>
+        public static float LoosenessFactor(float looseness, float drag) => 1f - Clamp01(looseness) * Clamp01(drag);
 
         public static float Normalize(float deg)
         {

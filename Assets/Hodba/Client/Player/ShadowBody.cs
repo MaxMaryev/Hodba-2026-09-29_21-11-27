@@ -44,12 +44,15 @@ namespace Hodba.Client
             }
         }
 
-        public void Tick(WalkSim sim, IWorldQuery world, FloatingOrigin origin, float bob)
+        /// <param name="bob">Вертикаль головы, м.</param>
+        /// <param name="lean">Наклон корпуса, ° (плюс — вперёд).</param>
+        public void Tick(WalkSim sim, IWorldQuery world, FloatingOrigin origin, float bob, float lean)
         {
             float ground = world.SampleHeightMm(sim.Position) / 1000f;
+            // Корпус клонится вслед за телом: вперёд на подъёме и при трогании, назад на спуске.
             _root.SetPositionAndRotation(
                 origin.ToLocal(sim.Position, ground + bob * 0.6f),
-                Quaternion.Euler(0f, sim.Course, 0f));
+                Quaternion.Euler(0f, sim.Course, 0f) * Quaternion.Euler(lean, 0f, 0f));
 
             if (_animator == null) return;
             if (_hasSpeed) _animator.SetFloat(SpeedId, sim.Speed);

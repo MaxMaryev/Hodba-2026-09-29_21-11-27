@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Hodba.Client.Body;
 using Hodba.Core;
 using Hodba.World;
 using UnityEngine;
@@ -8,7 +9,8 @@ namespace Hodba.Client
 {
     /// <summary>
     /// Редкие камни и совсем редкие валуны. Нужны не для «контента», а чтобы глаз чувствовал,
-    /// что ты идёшь: на ровном пепле без деталей движения не видно. Раскладка детерминирована по хэшу.
+    /// что ты идёшь: на ровном пепле без деталей движения не видно. Где лежит камень, решает
+    /// <see cref="StoneField"/> — та же раскладка, через которую переступает тело.
     /// </summary>
     public sealed class StoneScatter
     {
@@ -19,8 +21,6 @@ namespace Hodba.Client
             public readonly List<List<Matrix4x4>> Matrices = new List<List<Matrix4x4>>();
             public long LastCx = long.MinValue, LastCz = long.MinValue;
         }
-
-        const uint StoneSalt = 500, BoulderSalt = 900;
 
         readonly IWorldQuery _world;
         readonly FloatingOrigin _origin;
@@ -47,8 +47,8 @@ namespace Hodba.Client
 
         public void Tick(WorldPos focus)
         {
-            Rebuild(_stones, focus, _config.stoneCellSize, _config.stoneRadius, StoneSalt, false);
-            Rebuild(_boulders, focus, _config.boulderCellSize, _config.boulderRadius, BoulderSalt, true);
+            Rebuild(_stones, focus, _config.StoneLayout, _config.stoneRadius);
+            Rebuild(_boulders, focus, _config.BoulderLayout, _config.boulderRadius);
             Draw(_stones, _material);
             Draw(_boulders, _boulderMaterial);
         }
@@ -69,9 +69,10 @@ namespace Hodba.Client
             foreach (var _ in layer.Meshes) layer.Matrices.Add(new List<Matrix4x4>());
         }
 
-        void Rebuild(Layer layer, WorldPos focus, float cellSize, float radius, uint salt, bool boulders)
+        void Rebuild(Layer layer, WorldPos focus, in StoneLayout layout, float radius)
         {
-            long cellMm = (long)(cellSize * 1000f);
+            bool boulders = layout.Boulders;
+            long cellMm = layout.CellMm;
             long cx = WorldPos.FloorDiv(focus.X, cellMm);
             long cz = WorldPos.FloorDiv(focus.Z, cellMm);
             if (cx == layer.LastCx && cz == layer.LastCz) return;
@@ -80,25 +81,21 @@ namespace Hodba.Client
 
             foreach (var list in layer.Matrices) list.Clear();
 
-            int r = Mathf.CeilToInt(radius / cellSize);
-            uint seed = _world.Info.Seed + salt;
+            int r = Mathf.CeilToInt(radius / layout.CellSize);
             for (long dz = -r; dz <= r; dz++)
             for (long dx = -r; dx <= r; dx++)
             {
                 if (dx * dx + dz * dz > r * r) continue;
                 long x = cx + dx, z = cz + dz;
-                uint h = Hash.Cell(x, z, seed);
-
-                int count;
-                if (boulders) count = Hash.Unit(h) < _config.boulderChance ? 1 : 0;
-                else count = Mathf.FloorToInt(Hash.Unit(h) * 2f * _config.stonesPerCell + 0.5f);
+                uint h = StoneField.CellHash(x, z, _world.Info.Seed, layout);
+                int count = StoneField.Count(h, layout);
 
                 for (int k = 0; k < count; k++)
                 {
-                    uint s = Hash.Next(h, (uint)k + 1);
-                    long px = x * cellMm + (long)(Hash.Unit(Hash.Next(s, 1)) * cellMm);
-                    long pz = z * cellMm + (long)(Hash.Unit(Hash.Next(s, 2)) * cellMm);
-                    float skew = Mathf.Pow(Hash.Unit(Hash.Next(s, 3)), boulders ? 1.5f : 2.5f);
+                    var stone = StoneField.Place(x, z, h, k, layout);
+                    uint s = stone.Hash;
+                    long px = stone.X, pz = stone.Z;
+                    float skew = stone.Skew;
                     float yaw = Hash.Unit(Hash.Next(s, 5)) * 360f;
                     float tilt = (Hash.Unit(Hash.Next(s, 6)) - 0.5f) * 14f;
 

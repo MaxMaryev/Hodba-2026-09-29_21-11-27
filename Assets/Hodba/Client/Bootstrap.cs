@@ -1,3 +1,4 @@
+using Hodba.Client.Body;
 using Hodba.Core;
 using Hodba.Sim.Walk;
 using Hodba.World;
@@ -21,6 +22,7 @@ namespace Hodba.Client
         FloatingOrigin _origin;
         InputReader _input;
         GazeController _gaze;
+        WalkerBody _walker;
         FirstPersonRig _rig;
         ShadowBody _body;
         SkyClock _clock;
@@ -33,7 +35,13 @@ namespace Hodba.Client
         Footprints _footprints;
         WindSynth _windAudio;
         FootstepSynth _stepAudio;
+        StepDetailSynth _stepDetailAudio;
+        BreathSynth _breathAudio;
+        GearSynth _gearAudio;
+        BodyDebugOverlay _debug;
         float _saveTimer;
+
+        bool Proving => config.worldKind == WorldKind.ProvingGround;
 
         void Awake()
         {
@@ -52,12 +60,13 @@ namespace Hodba.Client
             Screen.autorotateToLandscapeRight = true;
             Screen.orientation = ScreenOrientation.AutoRotation;
 
-            _world = new FlatStub(config.seed);
+            _world = Proving ? new ProvingGround(config.seed) : new FlatStub(config.seed);
 
             var start = WorldPos.FromMeters(0, 0);
-            float course = 30f;
+            float course = Proving ? 0f : 30f;
             bool walking = false;
-            if (config.continueFromSave && WalkerSave.TryLoad(out var saved))
+            // Полигон всегда с начала маршрута: сохранение ему только мешает.
+            if (!Proving && config.continueFromSave && WalkerSave.TryLoad(out var saved))
             {
                 start = WalkerSave.Advance(saved, config.walk.BaseSpeed, config.backgroundMaxHours, out _);
                 course = saved.Course;
@@ -74,7 +83,8 @@ namespace Hodba.Client
 
             _input = new InputReader();
             _gaze = new GazeController(course);
-            _rig = new FirstPersonRig(camera, _sim);
+            _walker = new WalkerBody(config, _world);
+            _rig = new FirstPersonRig(camera);
             _body = new ShadowBody(config, config.stoneMaterial);
             _clock = new SkyClock();
             _sky = new SkyController(sun, config.skyMaterial);
@@ -90,12 +100,23 @@ namespace Hodba.Client
 
             _windAudio = WindSynth.Create(camera.transform, config.windLoop, config.windGustLoop, config.ashHissLoop);
             _stepAudio = FootstepSynth.Create(camera.transform, config.footstepClips);
-            _rig.Step += (left, pos) =>
+            _stepDetailAudio = StepDetailSynth.Create(camera.transform);
+            _breathAudio = BreathSynth.Create(camera.transform);
+            _gearAudio = GearSynth.Create(camera.transform);
+
+            // Один шаг — след, звук опоры, подробности, снаряжение. Каждый потребитель берёт своё.
+            _walker.Events.Step += e =>
             {
-                _footprints.Add(left, pos, _sim.Course);
-                float intensity = Mathf.Clamp01(_sim.Speed / Mathf.Max(0.1f, _sim.Params.BaseSpeed));
-                _stepAudio.Trigger(left, config.stepVolume * config.masterVolume * Mathf.Lerp(0.4f, 1f, intensity));
+                _footprints.Add(e.Left, e.Contact, e.Course);
+                if (!e.Felt) return;
+                var feel = SurfaceFeel.Find(config.gait.surfaces, e.Surface);
+                _stepAudio.Trigger(e, feel, config.stepVolume * config.masterVolume);
+                _stepDetailAudio.OnStep(e, config.stepDetailVolume * config.masterVolume);
+                _gearAudio.OnStep(e, config.gearVolume * config.masterVolume);
             };
+            _walker.Events.Body += e => _gearAudio.OnBodyEvent(e, config.gearVolume * config.masterVolume);
+
+            if (Debug.isDebugBuild) _debug = BodyDebugOverlay.Attach(gameObject, _walker, _sim);
 
             Tick(0f);
         }
@@ -118,14 +139,20 @@ namespace Hodba.Client
             _terrain.Tick(_sim.Position);
             _stones.Tick(_sim.Position);
 
-            _rig.Tick(_sim, _gaze, _world, _origin, config, dt);
-            _body.Tick(_sim, _world, _origin, _rig.Bob);
+            // Ветер раньше тела: тело (а потом и веки) чувствует его в этом же кадре.
+            _wind.Tick(config, Time.time, _sim.Course);
+
+            bool looking = _input.LookDegrees.sqrMagnitude > 0f;
+            _walker.Tick(_walker.Context(dt, _sim, _world, _wind, _clock, _gaze, looking));
+            _rig.Apply(_walker.Pose, _sim, _gaze, _world, _origin, config);
+            _body.Tick(_sim, _world, _origin, _walker.Pose.Up, _walker.Gait.Lean);
+            _breathAudio.Set(_walker.Exertion, config.breathVolume * config.masterVolume);
+            if (_debug != null) _debug.Sample(dt);
 
             _clock.Tick(config);
             _sky.Tick(_clock, config);
             _exposure.Tick(_rig.Camera, _clock, config, dt);
 
-            _wind.Tick(config, Time.time);
             float ground = _world.SampleHeightMm(_sim.Position) / 1000f;
             _dust.Tick(_rig.Camera, _wind, config, _origin.ToLocal(_sim.Position, ground).y);
             _footprints.Tick(dt, _wind.Strength);
@@ -137,16 +164,22 @@ namespace Hodba.Client
             if (_saveTimer <= 0f)
             {
                 _saveTimer = 10f;
-                WalkerSave.Save(_sim);
+                Save();
             }
+        }
+
+        /// <summary>Полигон не пишет в сохранение: настоящий путь путника он не трогает.</summary>
+        void Save()
+        {
+            if (_sim != null && !Proving) WalkerSave.Save(_sim);
         }
 
         void OnApplicationPause(bool paused)
         {
-            if (_sim == null) return;
+            if (_sim == null || Proving) return;
             if (paused)
             {
-                WalkerSave.Save(_sim);
+                Save();
                 return;
             }
 
@@ -155,16 +188,13 @@ namespace Hodba.Client
             var pos = WalkerSave.Advance(saved, config.walk.BaseSpeed, config.backgroundMaxHours, out double meters);
             if (meters < 1.0) return;
             _sim.Teleport(pos, saved.Course, true);
-            _rig.ResetSteps(_sim);
+            _walker.Reset(_sim);
             _origin.Rebase(pos);
             if (meters > 300.0) _footprints.Clear();
             _terrain.BuildAll(pos);
         }
 
-        void OnApplicationQuit()
-        {
-            if (_sim != null) WalkerSave.Save(_sim);
-        }
+        void OnApplicationQuit() => Save();
 
         void OnDestroy() => _input?.Dispose();
 

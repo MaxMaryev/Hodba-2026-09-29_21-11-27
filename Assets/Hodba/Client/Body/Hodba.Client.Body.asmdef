@@ -1,0 +1,18 @@
+{
+    "name": "Hodba.Client.Body",
+    "rootNamespace": "Hodba.Client.Body",
+    "references": [
+        "Hodba.Core",
+        "Hodba.World.Contract",
+        "Hodba.Sim.Walk"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

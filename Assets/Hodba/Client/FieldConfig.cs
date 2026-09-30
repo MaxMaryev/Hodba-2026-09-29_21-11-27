@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Hodba.Client.Body;
 using Hodba.Sim.Walk;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -14,28 +15,28 @@ namespace Hodba.Client
     {
         [Header("Мир")]
         public uint seed = 1;
+        [Tooltip("Field — обычное поле. ProvingGround — полигон для настройки тела: твёрдо → рыхло → подъём → плато, на север от (0,0).")]
+        public WorldKind worldKind = WorldKind.Field;
+        [Tooltip("Отладка: сильный встречный ветер (сцена «остановка на ветру»).")]
+        public bool debugHeadwind;
 
         [Header("Ходьба")]
         public WalkParams walk = WalkParams.Default;
 
-        [Header("Тело и камера")]
+        [Header("Камера")]
         public float eyeHeight = 1.65f;
         public float fov = 60f;
-        [Tooltip("Покачивание вверх-вниз за шаг, м. Отключить нельзя — закон 6.")]
-        public float bobVertical = 0.035f;
-        [Tooltip("Раскачка в стороны за пару шагов, м.")]
-        public float bobLateral = 0.025f;
-        [Tooltip("Крен за пару шагов, °.")]
-        public float bobRoll = 0.6f;
-        [Tooltip("Случайная неровность каждого шага, доля.")]
-        [Range(0f, 0.5f)] public float stepIrregularity = 0.12f;
         [Tooltip("Насколько взгляд гасит тряску: 0 — никак, 1 — точка впереди неподвижна.")]
         [Range(0f, 1f)] public float gazeStabilization = 0.7f;
         public float stabilizationDistance = 10f;
-        public float breathAmplitude = 0.004f;
-        public float breathRate = 0.25f;
-        [Tooltip("Крен при повороте тела, ° на каждый °/с.")]
-        public float turnLean = 0.03f;
+
+        // Тело — из кирпичиков: у каждого модуля свои настройки. Все числа стартовые, подбираются на телефоне.
+        [Header("Тело: походка и опора")]
+        public GaitSettings gait = GaitSettings.Default;
+        [Header("Тело: усилие, дыхание, осторожность")]
+        public ExertionSettings exertion = ExertionSettings.Default;
+        [Header("Тело: как слои складываются в голову")]
+        public PoseSettings pose = PoseSettings.Default;
 
         [Header("Взгляд")]
         [Tooltip("Градусов на ширину экрана при ведении пальцем.")]
@@ -155,12 +156,17 @@ namespace Hodba.Client
         [Tooltip("Шорох пепла (петля). Растёт с силой ветра.")]
         public AudioClip ashHissLoop;
         [Range(0f, 1f)] public float ashHissVolume = 0.4f;
+        [Tooltip("Дыхание: на ровном почти не слышно, после подъёма — да.")]
+        [Range(0f, 1f)] public float breathVolume = 0.35f;
+        [Tooltip("Ткань, лямки, снаряжение.")]
+        [Range(0f, 1f)] public float gearVolume = 0.3f;
+        [Tooltip("Подробности шага: перекат подошвы, осыпь, камень.")]
+        [Range(0f, 1f)] public float stepDetailVolume = 0.5f;
 
         [Header("Следы")]
         public int footprintMax = 1500;
         public float footprintLifetimeMinutes = 180f;
         public Vector2 footprintSize = new Vector2(0.13f, 0.30f);
-        public float footprintOffset = 0.12f;
         [Tooltip("Серая, 0.5 — нейтраль. Импорт без sRGB. Пусто — сгенерированная.")]
         public Texture2D footprintTexture;
 
@@ -184,5 +190,14 @@ namespace Hodba.Client
         [Tooltip("Продолжать с того же места; если шёл — досчитать, сколько прошёл без тебя.")]
         public bool continueFromSave = true;
         public float backgroundMaxHours = 168f;
+
+        public StoneLayout StoneLayout => new StoneLayout(stoneCellSize, stonesPerCell, boulderChance, false, stoneSize);
+        public StoneLayout BoulderLayout => new StoneLayout(boulderCellSize, stonesPerCell, boulderChance, true, boulderSize);
+    }
+
+    public enum WorldKind
+    {
+        Field,
+        ProvingGround,
     }
 }

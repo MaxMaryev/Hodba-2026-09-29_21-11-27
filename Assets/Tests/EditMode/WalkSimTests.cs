@@ -21,6 +21,13 @@ namespace Hodba.Tests
             public SurfaceSample SampleSurface(long xMm, long zMm) => new SurfaceSample(SurfaceKind.FineAsh, 0);
         }
 
+        sealed class Loose : IWorldQuery
+        {
+            public WorldInfo Info => new WorldInfo(0, 0, "loose");
+            public long SampleHeightMm(long xMm, long zMm) => 0;
+            public SurfaceSample SampleSurface(long xMm, long zMm) => new SurfaceSample(SurfaceKind.FineAsh, 65535);
+        }
+
         static WalkSim Sim(float course = 0f) => new WalkSim(WalkParams.Default, new WorldPos(0, 0), course);
 
         static void Run(WalkSim sim, IWorldQuery world, float seconds, float dt = 1f / 30f)
@@ -97,6 +104,17 @@ namespace Hodba.Tests
             sim.Apply(Intent.Walk());
             Run(sim, new Slope(), 5f);
             Assert.That(sim.Speed, Is.LessThan(WalkParams.Default.BaseSpeed * 0.7f));
+        }
+
+        [Test]
+        public void LooseAshIsSlower()
+        {
+            var sim = Sim(0f);
+            sim.Apply(Intent.Walk());
+            Run(sim, new Loose(), 5f);
+            float expected = WalkParams.Default.BaseSpeed * (1f - WalkParams.Default.LoosenessDrag);
+            Assert.That(sim.Speed, Is.EqualTo(expected).Within(0.01f));
+            Assert.That(sim.Looseness, Is.EqualTo(1f).Within(0.001f));
         }
 
         [Test]
