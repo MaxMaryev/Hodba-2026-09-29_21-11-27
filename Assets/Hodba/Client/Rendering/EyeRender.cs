@@ -31,6 +31,9 @@ namespace Hodba.Client
         readonly EyePass _pass;
         bool _active;
 
+        /// <summary>Проход глаза действительно отработал в последних кадрах — для отладки.</summary>
+        public bool Working => _pass != null && Time.frameCount - _pass.RecordedFrame <= 2;
+
         public EyeRender(Camera camera, Shader shader)
         {
             _camera = camera;
@@ -89,6 +92,7 @@ namespace Hodba.Client
             readonly Material _material;
             public float BlurRadius = 1.5f;
             public bool Periphery;
+            public int RecordedFrame = -100;
 
             public EyePass(Material material)
             {
@@ -101,6 +105,7 @@ namespace Hodba.Client
             {
                 var resources = frameData.Get<UniversalResourceData>();
                 if (resources.isActiveTargetBackBuffer) return;
+                RecordedFrame = Time.frameCount;
 
                 var source = resources.activeColorTexture;
                 var desc = renderGraph.GetTextureDesc(source);

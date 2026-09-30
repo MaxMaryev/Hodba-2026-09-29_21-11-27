@@ -25,6 +25,7 @@ namespace Hodba.Client
 
         WalkerBody _body;
         WalkSim _sim;
+        EyeRender _eye;
         readonly BodyRecorder _recorder = new BodyRecorder();
         Channel[] _channels;
         bool[] _steps;
@@ -41,6 +42,9 @@ namespace Hodba.Client
             body.Events.Step += o.OnStep;
             return o;
         }
+
+        /// <summary>Чтобы видеть, работает ли проход глаза (веки, периферия) на этом устройстве.</summary>
+        public void SetEye(EyeRender eye) => _eye = eye;
 
         void Awake()
         {
@@ -126,7 +130,11 @@ namespace Hodba.Client
             GUI.Label(new Rect(x0, y0 - 4f, w, 22f),
                 $"скорость {_sim.Speed:0.00} м/с  уклон {_sim.Slope * 100f:0}%  шаг {_body.Gait.StepFrequency:0.00}/с  " +
                 $"фаза {_body.Gait.Phase:0.00}  {_surface}  взгляд: {_body.Eyes.Kind}, камни знакомы на {_body.Habituation.Familiarity(GazeKind.Stone):0.00}");
-            y0 += 20f;
+            var per = _body.Periphery;
+            GUI.Label(new Rect(x0, y0 + 16f, w, 22f),
+                $"глаз: {(_eye != null && _eye.Working ? "проход работает" : "проход НЕ работает")}; " +
+                $"периферия: мыло с {per.Start:0.00}, в углах {per.Blur:0.00}, цвет −{per.Desaturate:0.00}, темнее {per.Darken:0.00}");
+            y0 += 40f;
 
             if (Event.current.type == EventType.Repaint)
             {

@@ -5,7 +5,8 @@ namespace Hodba.Client.Body
 {
     /// <summary>
     /// Периферия. Человек видит чётко только в центре. Игрок и так смотрит своими глазами по экрану,
-    /// поэтому в покое мыло почти незаметно; с одышкой (потом — жаждой, жарой, усталостью) туннель сужается.
+    /// но в пустыне мало мелких деталей, и слабое мыло не видно вовсе — поэтому оно заметное;
+    /// с одышкой (потом — жаждой, жарой, усталостью) туннель сужается и темнеет.
     /// Числа стартовые, подбираются на телефоне.
     /// </summary>
     [Serializable]
@@ -32,13 +33,13 @@ namespace Hodba.Client.Body
 
         public static PeripherySettings Default => new PeripherySettings
         {
-            start = 0.6f,
-            blur = 0.35f,
-            desaturate = 0.15f,
-            radius = 1.5f,
+            start = 0.4f,
+            blur = 0.8f,
+            desaturate = 0.25f,
+            radius = 3f,
             tunnelFrom = 0.5f,
             tunnelInward = 0.25f,
-            tunnelBlur = 0.4f,
+            tunnelBlur = 0.2f,
             tunnelDarken = 0.35f,
         };
     }

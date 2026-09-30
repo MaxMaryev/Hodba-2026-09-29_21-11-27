@@ -119,7 +119,11 @@ namespace Hodba.Client
             };
             _walker.Events.Body += e => _gearAudio.OnBodyEvent(e, config.gearVolume * config.masterVolume);
 
-            if (Debug.isDebugBuild) _debug = BodyDebugOverlay.Attach(gameObject, _walker, _sim);
+            if (Debug.isDebugBuild)
+            {
+                _debug = BodyDebugOverlay.Attach(gameObject, _walker, _sim);
+                _debug.SetEye(_eyeRender);
+            }
 
             Tick(0f);
         }

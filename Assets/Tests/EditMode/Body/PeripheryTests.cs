@@ -8,12 +8,12 @@ namespace Hodba.Tests
         static ExertionState Load(float load) => new ExertionState(load, load, 0f, 0.3f, 1f, 0f, 0.5f);
 
         [Test]
-        public void Calm_IsBarelyThere_OnlyAtTheEdges()
+        public void Calm_OnlyAtTheEdges()
         {
             var s = PeripherySettings.Default;
             var p = Periphery.From(Load(0f), s);
-            Assert.That(p.Start, Is.GreaterThanOrEqualTo(0.5f), "центр чистый");
-            Assert.That(p.Blur, Is.LessThanOrEqualTo(0.4f));
+            Assert.That(p.Start, Is.GreaterThanOrEqualTo(0.35f), "центр чистый");
+            Assert.That(p.Blur, Is.InRange(0.3f, 0.9f), "заметно, но не пелена");
             Assert.AreEqual(0f, p.Darken, "в покое края не темнеют");
         }
 

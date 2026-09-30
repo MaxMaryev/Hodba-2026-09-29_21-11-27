@@ -195,13 +195,13 @@ MonoBehaviour:
     resumeSpread: 0.5
     resumeRamp: 2
   periphery:
-    start: 0.6
-    blur: 0.35
-    desaturate: 0.15
-    radius: 1.5
+    start: 0.4
+    blur: 0.8
+    desaturate: 0.25
+    radius: 3
     tunnelFrom: 0.5
     tunnelInward: 0.25
-    tunnelBlur: 0.4
+    tunnelBlur: 0.2
     tunnelDarken: 0.35
   lookSensitivity: 110
   lookSmoothing: 0.06
