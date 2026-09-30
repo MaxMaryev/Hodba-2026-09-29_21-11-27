@@ -41,6 +41,8 @@ namespace Hodba.Client
         public EyelidSettings eyelids = EyelidSettings.Default;
         [Header("Глаза: блуждающий взгляд")]
         public EyeWanderSettings eyes = EyeWanderSettings.Default;
+        [Header("Глаза: периферия и туннель")]
+        public PeripherySettings periphery = PeripherySettings.Default;
 
         [Header("Взгляд")]
         [Tooltip("Градусов на ширину экрана при ведении пальцем.")]

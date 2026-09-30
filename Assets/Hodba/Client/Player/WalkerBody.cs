@@ -32,6 +32,8 @@ namespace Hodba.Client
         /// <summary>Куда глаза смотрят сами, относительно головы.</summary>
         public EyeState Eyes => _eyes.State;
         public EyelidState Eyelids => _eyelids.State;
+        /// <summary>Периферия: мыло к краям, туннель от одышки.</summary>
+        public PeripheryState Periphery => Hodba.Client.Body.Periphery.From(_exertion.State, _config.periphery);
         public Habituation Habituation => _eyes.Habituation;
         /// <summary>0..1 — насколько солнце бьёт в глаз (до век).</summary>
         public float SunStimulus => _sun.Stimulus;

@@ -24,6 +24,7 @@ namespace Hodba.Editor
             public EyelidState Lids;
             public float Sun;
             public bool FaceSun;
+            public PeripheryState Periphery;
         }
 
         [MenuItem("Hodba/Debug/Eye Preview", priority = 200)]
@@ -46,10 +47,10 @@ namespace Hodba.Editor
             var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.transform.localScale = Vector3.one * 200f;
             if (config != null && config.groundMaterial != null) ground.GetComponent<Renderer>().sharedMaterial = config.groundMaterial;
-            for (int i = 0; i < 12; i++)
+            for (int i = 0; i < 48; i++)
             {
                 var rock = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                rock.transform.position = new Vector3((i % 4 - 1.5f) * 3f, 0.05f, 4f + i * 2.5f);
+                rock.transform.position = new Vector3((i * 37 % 23 - 11) * 1.4f, 0.05f, 3f + i * 13 % 31 * 1.3f);
                 rock.transform.localScale = new Vector3(0.5f, 0.25f, 0.4f) * (0.6f + (i % 3) * 0.4f);
                 if (config != null && config.stoneMaterial != null) rock.GetComponent<Renderer>().sharedMaterial = config.stoneMaterial;
             }
@@ -65,14 +66,20 @@ namespace Hodba.Editor
             var shader = config != null && config.eyeShader != null ? config.eyeShader : Shader.Find("Hidden/Hodba/Eye");
             var eye = new EyeRender(cam, shader);
 
+            var ps = config != null ? config.periphery : PeripherySettings.Default;
+            var calm = Periphery.From(new ExertionState(0f, 0f, 0f, 0.23f, 0.6f, 0f, 0.5f), ps);
+            var tunnel = Periphery.From(new ExertionState(1f, 1f, 0f, 0.6f, 1.4f, 0f, 0.5f), ps);
+            var none = new PeripheryState(1f, 0f, 0f, 0f, ps.radius);
+            var open = new EyelidState(0f, 0f, 0f, 0f, 0.04f);
+
             var shots = new[]
             {
-                new Shot { Name = "открыто", Lids = new EyelidState(0f, 0f, 0f, 0f, 0.04f) },
-                new Shot { Name = "моргание, середина", Lids = new EyelidState(0.5f, 0.06f, 0f, 0.5f, 0.04f) },
-                new Shot { Name = "моргание, дно", Lids = new EyelidState(0.9f, 0.11f, 0f, 1f, 0.04f) },
-                new Shot { Name = "прищур от ветра", Lids = new EyelidState(0.45f, 0.4f, 1f, 0f, 0.04f) },
-                new Shot { Name = "прищур на солнце", Lids = new EyelidState(0.45f, 0.4f, 1f, 0f, 1f), Sun = 1f, FaceSun = true },
-                new Shot { Name = "сомкнуто против солнца", Lids = new EyelidState(0.97f, 0.12f, 0f, 1f, 1f), Sun = 1f, FaceSun = true },
+                new Shot { Name = "без периферии (для сравнения)", Lids = open, Periphery = none },
+                new Shot { Name = "периферия в покое", Lids = open, Periphery = calm },
+                new Shot { Name = "туннель от одышки", Lids = open, Periphery = tunnel },
+                new Shot { Name = "моргание, середина", Lids = new EyelidState(0.5f, 0.06f, 0f, 0.5f, 0.04f), Periphery = calm },
+                new Shot { Name = "прищур на солнце", Lids = new EyelidState(0.45f, 0.4f, 1f, 0f, 1f), Sun = 1f, FaceSun = true, Periphery = calm },
+                new Shot { Name = "сомкнуто против солнца", Lids = new EyelidState(0.97f, 0.12f, 0f, 1f, 1f), Sun = 1f, FaceSun = true, Periphery = calm },
             };
 
             var sheet = new Texture2D(W * 2, H * 3, TextureFormat.RGB24, false);
@@ -84,7 +91,7 @@ namespace Hodba.Editor
                     var s = shots[i];
                     camGo.transform.SetPositionAndRotation(new Vector3(0f, 1.65f, 0f),
                         Quaternion.LookRotation(s.FaceSun ? -sunGo.transform.forward : new Vector3(0.3f, -0.12f, 1f)));
-                    eye.Apply(s.Lids, s.Sun);
+                    eye.Apply(s.Lids, s.Sun, s.Periphery);
                     cam.targetTexture = rt;
                     RenderPipeline.SubmitRenderRequest(cam, new UniversalRenderPipeline.SingleCameraRequest { destination = rt });
                     var old = RenderTexture.active;

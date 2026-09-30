@@ -158,7 +158,7 @@ namespace Hodba.Client
             _clock.Tick(config);
             _sky.Tick(_clock, config);
             _exposure.Tick(_rig.Camera, _clock, config, dt, _walker.Eyelids.Squint);
-            _eyeRender.Apply(_walker.Eyelids, _exposure.GlareStimulus);
+            _eyeRender.Apply(_walker.Eyelids, _exposure.GlareStimulus, _walker.Periphery);
 
             float ground = _world.SampleHeightMm(_sim.Position) / 1000f;
             _dust.Tick(_rig.Camera, _wind, config, _origin.ToLocal(_sim.Position, ground).y);
