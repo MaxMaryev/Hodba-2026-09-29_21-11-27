@@ -34,6 +34,17 @@ def png(path, array):
     path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, kind, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(payload, 6)) + chunk(b'IEND', b''))
 
 
+def boulder_ash_mask(u, v):
+    """Windward (-Y) drift only, fading to bare stone before the side/back.
+
+    U follows rock azimuth, so sin(2*pi*U) == -1 is Blender -Y / Unity +Z.
+    The material snowline never exceeds half the boulder's UV height.
+    """
+    windward = np.clip(((-np.sin(u * 2 * np.pi)) - .10) / .90, 0, 1) ** 1.7
+    snowline = .50 * windward * (.96 + .04 * np.sin(u * 44))
+    return np.clip((snowline - v) * 20, 0, 1) * windward
+
+
 def atlas(name, count, columns, rows, big=False):
     """Independent padded UV cells; features remain in register across PBR maps."""
     s = 1024
@@ -56,11 +67,8 @@ def atlas(name, count, columns, rows, big=False):
             pores += np.exp(-((dx / radius) ** 2 + ((v - cy) / (radius * 1.1)) ** 2) * 2)
         pores = np.clip(pores, 0, 1)
         micro = .28 * wave + .14 * (grain - .5) - .7 * pores
-        wind_side = (1 - np.sin(u * 2 * np.pi)) * .5
         if big:
-            snowline = .12 + .51 * wind_side ** 2 + .025 * np.sin(u * 44)
-            ash = np.clip((snowline - v) * 18, 0, 1)
-            ash = np.maximum(ash, np.clip((v - .88) * 7, 0, .5))
+            ash = boulder_ash_mask(u, v)
         else:
             ash = np.clip((v - .60 + .045 * np.sin(u * 32) + wave * .04) * 4, 0, .68) * (.45 + .55 * grain)
         stone = np.stack([46 + wave * 13, 44 + wave * 12, 42 + wave * 11], axis=-1)
@@ -134,7 +142,7 @@ def rock(index, target, mat, big=False):
                 z *= .65 + .35 * (x / rx + 1) * .5
             if big:
                 # The low windward apron merges into the closed mesh.
-                apron = max(0, -math.sin(a)) ** 4 * max(0, 1 - t / .6)
+                apron = max(0, -math.sin(a)) ** 4 * max(0, 1 - t / .5)
                 y -= .50 * apron
                 x *= 1 + .08 * apron
             verts.append((x, y, z))
@@ -191,7 +199,18 @@ def inspect(obj, target, big):
     tri = sum(len(p.vertices) - 2 for p in m.polygons)
     lo, hi = (600, 1200) if big else (150, 400)
     result = dict(name=obj.name, target_m=target, max_dimension_m=float(max(dimensions)), dimensions_m=dimensions.tolist(), triangles=tri, boundary_edges=boundary, nonmanifold_edges=nonmanifold, degenerate_faces=sum(a < 1e-14 for a in areas), min_triangle_area=min(areas), signed_volume=volume, base_z=float(coords[:, 2].min()), uv_in_atlas_tile=bool(np.all(uv > 0) and np.all(uv < 1)), pivot_center_xy=bool(np.max(abs(coords[:, :2].min(axis=0) + coords[:, :2].max(axis=0))) < 1e-6), fbx=f'Assets/Art/Field/Models/{obj.name}.fbx')
-    result['passed'] = bool(lo <= tri <= hi and boundary == nonmanifold == 0 and volume > 0 and result['degenerate_faces'] == 0 and abs(max(dimensions) - target) < 1e-6 and result['pivot_center_xy'] and result['uv_in_atlas_tile'])
+    drift_ok = True
+    if big:
+        sample_v = np.linspace(0, 1, 1001)
+        windward = boulder_ash_mask(np.full_like(sample_v, .75), sample_v)
+        leeward = boulder_ash_mask(np.full_like(sample_v, .25), sample_v)
+        ash_rows = sample_v[windward > 1e-6]
+        max_height = float(ash_rows.max()) if len(ash_rows) else 0.0
+        drift_ok = bool(windward.max() > .95 and leeward.max() < 1e-6 and max_height <= .5)
+        result.update(ash_drift_unity_direction='+Z', ash_drift_max_height_fraction=max_height,
+                      ash_windward_coverage=float(windward.max()), ash_leeward_coverage=float(leeward.max()),
+                      ash_apron_max_height_fraction=.5, ash_drift_passed=drift_ok)
+    result['passed'] = bool(lo <= tri <= hi and boundary == nonmanifold == 0 and volume > 0 and result['degenerate_faces'] == 0 and abs(max(dimensions) - target) < 1e-6 and result['pivot_center_xy'] and result['uv_in_atlas_tile'] and drift_ok)
     return result
 
 

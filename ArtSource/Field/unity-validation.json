@@ -1,0 +1,166 @@
+{
+    "unityVersion": "6000.5.1f1",
+    "utc": "2026-09-30T17:35:37.8339501Z",
+    "error": "",
+    "passed": true,
+    "humanoidValid": true,
+    "humanoidHuman": true,
+    "rendererPreserved": true,
+    "allShadersSupported": true,
+    "rendererIndex": 1,
+    "modelCount": 12,
+    "textureCount": 39,
+    "animationCount": 2,
+    "shadowDistance": 80.0,
+    "travelerWalkSpeed": 1.2999999523162842,
+    "animationPoseChanged": true,
+    "posedHeadHeight": 1.3670262098312379,
+    "posedMeshHeight": 1.6198575496673585,
+    "animations": [
+        "Traveler_Rig|Idle_Breathing (4,000s)",
+        "Traveler_Rig|Walk_Tired (1,200s)"
+    ],
+    "failures": [],
+    "screenshots": [
+        "Previews/Field_FirstPerson.png",
+        "Previews/Field_Gallery.png",
+        "Previews/Field_GroundFootprints.png",
+        "Previews/Field_Shadow_Phase0.png",
+        "Previews/Field_Shadow_Phase1.png",
+        "Previews/Field_Traveler_Debug.png"
+    ],
+    "meshes": [
+        {
+            "asset": "M1_01_Flat.fbx",
+            "triangles": 224,
+            "size": {
+                "x": 0.05000000074505806,
+                "y": 0.010725111700594426,
+                "z": 0.04051591083407402
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M1_02_Angular.fbx",
+            "triangles": 224,
+            "size": {
+                "x": 0.07999999821186066,
+                "y": 0.038237638771533969,
+                "z": 0.06895196437835694
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M1_03_Rounded.fbx",
+            "triangles": 224,
+            "size": {
+                "x": 0.11999999731779099,
+                "y": 0.05243992805480957,
+                "z": 0.10879045724868775
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M1_04_Split.fbx",
+            "triangles": 224,
+            "size": {
+                "x": 0.12369526922702789,
+                "y": 0.07956138253211975,
+                "z": 0.1599999964237213
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M1_05_Elongated.fbx",
+            "triangles": 224,
+            "size": {
+                "x": 0.2199999988079071,
+                "y": 0.05809664726257324,
+                "z": 0.07912178337574005
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M1_06_Wedge.fbx",
+            "triangles": 224,
+            "size": {
+                "x": 0.2800000011920929,
+                "y": 0.08459990471601486,
+                "z": 0.20053499937057496
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M1_07_Squat.fbx",
+            "triangles": 224,
+            "size": {
+                "x": 0.3399999737739563,
+                "y": 0.06391007453203201,
+                "z": 0.31804120540618899
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M1_08_Asymmetric.fbx",
+            "triangles": 224,
+            "size": {
+                "x": 0.4000000059604645,
+                "y": 0.15965262055397035,
+                "z": 0.2925344705581665
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M2_01.fbx",
+            "triangles": 816,
+            "size": {
+                "x": 0.5998555421829224,
+                "y": 0.293511301279068,
+                "z": 0.6000000238418579
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M2_02.fbx",
+            "triangles": 816,
+            "size": {
+                "x": 0.9622353911399841,
+                "y": 0.729444682598114,
+                "z": 1.2000000476837159
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M2_03.fbx",
+            "triangles": 816,
+            "size": {
+                "x": 1.7999999523162842,
+                "y": 0.6441930532455444,
+                "z": 1.6070895195007325
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        },
+        {
+            "asset": "M3_Traveler.fbx",
+            "triangles": 7976,
+            "size": {
+                "x": 1.5753847360610963,
+                "y": 1.75,
+                "z": 0.5890000462532044
+            },
+            "budgetPassed": true,
+            "sizePassed": true
+        }
+    ]
+}

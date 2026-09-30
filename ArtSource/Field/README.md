@@ -22,7 +22,7 @@ Generators overwrite only this asset pack's outputs. Review changes before rebui
 - `ArtSource/Field`: editable `.blend` authoring files, generators, validation, previews.
 
 FBX: metres, Y up, forward +Z. Blender authoring uses Z up, forward -Y. Rock origins lie at the horizontal bounds centre and lowest plane. Mesh transforms are unit scale on export.
-The boulder ash apron faces Unity **+Z**; rotate the entire prefab so this face points into the wind. Small-rock ash is a thin top deposit. All 11 rock bases are closed and planar. No static light/shadow is baked into albedo.
+The boulder ash apron faces Unity **+Z**; rotate the entire prefab so this face points into the wind. Its material mask is zero on the leeward side and stops at 50% of UV height; `rock-validation.json` checks both limits. Small-rock ash is a thin top deposit. All 11 rock bases are closed and planar. No static light/shadow is baked into albedo.
 
 Rocks use separate 1024 atlases for M1 and M2, with 6% inset per cell and extruded UV gutters. Pores use normal maps; AO is separate. Atlas features are not physically identical in size on all rock variants. M3 has a four-band textile/leather atlas and a 21-bone Humanoid skeleton.
 

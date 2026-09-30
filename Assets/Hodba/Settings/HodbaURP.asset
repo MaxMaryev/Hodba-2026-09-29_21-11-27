@@ -18,6 +18,7 @@ MonoBehaviour:
   m_RendererData: {fileID: 0}
   m_RendererDataList:
   - {fileID: 11400000, guid: 1cd3f6142efc32147be070d60dfa3496, type: 2}
+  - {fileID: 11400000, guid: cd26aff38b199b548a12f291ab4ff517, type: 2}
   m_DefaultRendererIndex: 0
   m_RequireDepthTexture: 0
   m_RequireOpaqueTexture: 0
@@ -54,7 +55,7 @@ MonoBehaviour:
   m_ReflectionProbeBlending: 0
   m_ReflectionProbeBoxProjection: 0
   m_ReflectionProbeAtlas: 1
-  m_ShadowDistance: 35
+  m_ShadowDistance: 80
   m_ShadowCascadeCount: 2
   m_Cascade2Split: 0.3
   m_Cascade3Split: {x: 0.1, y: 0.3}
