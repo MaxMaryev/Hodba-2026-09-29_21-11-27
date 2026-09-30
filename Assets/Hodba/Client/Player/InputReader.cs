@@ -18,6 +18,8 @@ namespace Hodba.Client
         public bool Focus { get; private set; }
         public bool CycleTime { get; private set; }
         public bool Back { get; private set; }
+        /// <summary>Игрок сейчас ведёт взгляд (палец тянет или зажата мышь) — глаза уступают.</summary>
+        public bool Looking { get; private set; }
 
         const float TapMaxTime = 0.3f;
         const float TapSlopFraction = 0.02f;
@@ -47,6 +49,7 @@ namespace Hodba.Client
             CycleTime = false;
             Back = false;
             bool focus = false;
+            bool looking = false;
 
             float degPerPixel = config.lookSensitivity / Mathf.Max(1, Screen.width);
             double now = Time.realtimeSinceStartupAsDouble;
@@ -68,6 +71,7 @@ namespace Hodba.Client
                 if (!_dragging && (t.screenPosition - _dragStart).magnitude > Screen.width * TapSlopFraction)
                     _dragging = true;
 
+                looking = _dragging;
                 if (_dragging && t.phase == UnityEngine.InputSystem.TouchPhase.Moved)
                     LookDegrees += new Vector2(t.delta.x, t.delta.y) * degPerPixel;
 
@@ -97,7 +101,11 @@ namespace Hodba.Client
             var mouse = Mouse.current;
             if (mouse != null && count == 0)
             {
-                if (mouse.leftButton.isPressed) LookDegrees += mouse.delta.ReadValue() * degPerPixel;
+                if (mouse.leftButton.isPressed)
+                {
+                    LookDegrees += mouse.delta.ReadValue() * degPerPixel;
+                    looking = true;
+                }
                 focus |= mouse.rightButton.isPressed;
             }
 
@@ -111,6 +119,7 @@ namespace Hodba.Client
             }
 
             Focus = focus;
+            Looking = looking;
         }
     }
 }

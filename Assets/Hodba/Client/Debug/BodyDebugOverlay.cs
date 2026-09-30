@@ -56,6 +56,8 @@ namespace Hodba.Client
                 Make("событие", new Color(1f, 0.3f, 0.2f), 0f, 1f),
                 Make("веки открыты", new Color(0.95f, 0.75f, 0.6f), 0f, 1f),
                 Make("прищур", new Color(1f, 1f, 0.5f), 0f, 1f),
+                Make("глаз вбок, °", new Color(0.5f, 1f, 0.9f), -12f, 12f),
+                Make("глаз вниз, °", new Color(0.3f, 0.9f, 0.7f), -5f, 25f),
             };
             _steps = new bool[Samples];
         }
@@ -88,6 +90,8 @@ namespace Hodba.Client
             Put(7, _body.Gait.EventStrength);
             Put(8, _body.Eyelids.Openness);
             Put(9, _body.Eyelids.Squint);
+            Put(10, _body.Eyes.Yaw);
+            Put(11, _body.Eyes.Pitch);
             _recorder.Write(_body.Time, dt, _body, _sim);
         }
 
@@ -121,7 +125,7 @@ namespace Hodba.Client
 
             GUI.Label(new Rect(x0, y0 - 4f, w, 22f),
                 $"скорость {_sim.Speed:0.00} м/с  уклон {_sim.Slope * 100f:0}%  шаг {_body.Gait.StepFrequency:0.00}/с  " +
-                $"фаза {_body.Gait.Phase:0.00}  {_surface}");
+                $"фаза {_body.Gait.Phase:0.00}  {_surface}  взгляд: {_body.Eyes.Kind}, камни знакомы на {_body.Habituation.Familiarity(GazeKind.Stone):0.00}");
             y0 += 20f;
 
             if (Event.current.type == EventType.Repaint)

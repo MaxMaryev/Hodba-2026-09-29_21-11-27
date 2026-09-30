@@ -28,6 +28,8 @@ namespace Hodba.Client.Body
         [Range(0.1f, 1f)] public float focusBlinkRate;
         [Tooltip("Вероятность моргнуть от спотыкания.")]
         [Range(0f, 1f)] public float stumbleBlink;
+        [Tooltip("Вероятность моргнуть при крупном переводе взгляда.")]
+        [Range(0f, 1f)] public float gazeShiftBlink;
 
         [Header("Прищур")]
         [Tooltip("Верхнее веко при полном прищуре, доля щели.")]
@@ -70,6 +72,7 @@ namespace Hodba.Client.Body
             blinkDepth = 0.9f,
             focusBlinkRate = 0.5f,
             stumbleBlink = 0.8f,
+            gazeShiftBlink = 0.5f,
 
             squintUpper = 0.45f,
             squintLower = 0.4f,

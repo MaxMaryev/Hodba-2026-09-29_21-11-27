@@ -61,6 +61,8 @@ namespace Hodba.Client.Body
         /// <summary>Переступил через камень или обошёл его шагом.</summary>
         StoneAvoided,
         Stumble,
+        /// <summary>Взгляд крупно перевёл внимание — часто вместе с морганием.</summary>
+        GazeShift,
     }
 
     public readonly struct BodyEvent

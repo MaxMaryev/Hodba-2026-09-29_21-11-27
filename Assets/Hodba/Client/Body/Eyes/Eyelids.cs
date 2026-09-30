@@ -68,6 +68,7 @@ namespace Hodba.Client.Body
         public void OnBodyEvent(in BodyEvent e, in EyelidSettings s)
         {
             if (e.Kind == BodyEventKind.Stumble && _rng.Chance(s.stumbleBlink * e.Strength)) Blink();
+            if (e.Kind == BodyEventKind.GazeShift && _rng.Chance(s.gazeShiftBlink * e.Strength)) Blink();
         }
 
         /// <param name="view">Куда смотрят глаза, мировые оси.</param>

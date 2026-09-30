@@ -39,6 +39,8 @@ namespace Hodba.Client
         public PoseSettings pose = PoseSettings.Default;
         [Header("Глаза: веки, моргание, прищур")]
         public EyelidSettings eyelids = EyelidSettings.Default;
+        [Header("Глаза: блуждающий взгляд")]
+        public EyeWanderSettings eyes = EyeWanderSettings.Default;
 
         [Header("Взгляд")]
         [Tooltip("Градусов на ширину экрана при ведении пальцем.")]

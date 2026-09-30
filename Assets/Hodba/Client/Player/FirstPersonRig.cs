@@ -19,7 +19,8 @@ namespace Hodba.Client
             Camera = camera;
         }
 
-        public void Apply(in PoseDelta pose, WalkSim sim, GazeController gaze, IWorldQuery world, FloatingOrigin origin, FieldConfig config)
+        /// <param name="eyes">Куда глаза смотрят сами. Камера — это глаз: их взгляд поворачивает саму картинку.</param>
+        public void Apply(in PoseDelta pose, in EyeState eyes, WalkSim sim, GazeController gaze, IWorldQuery world, FloatingOrigin origin, FieldConfig config)
         {
             float ground = world.SampleHeightMm(sim.Position) / 1000f;
             float courseRad = sim.Course * Mathf.Deg2Rad;
@@ -29,11 +30,12 @@ namespace Hodba.Client
             var pos = origin.ToLocal(sim.Position, ground + config.eyeHeight + pose.Up)
                       + right * pose.Side + forward * pose.Forward;
 
-            // Гашение тряски взглядом: глаз доворачивается на точку впереди.
+            // Гашение тряски взглядом: глаз держит точку, на которую смотрит, — дорогу у ног сильнее, горизонт слабее.
             float stab = config.gazeStabilization;
-            float dist = Mathf.Max(1f, config.stabilizationDistance);
-            float pitch = gaze.Pitch + pose.Pitch + Mathf.Atan2(pose.Up, dist) * Mathf.Rad2Deg * stab;
-            float yaw = gaze.Yaw + pose.Yaw - Mathf.Atan2(pose.Side, dist) * Mathf.Rad2Deg * stab;
+            float focus = Mathf.Clamp(eyes.FocusDistance, 2f, 30f);
+            float dist = Mathf.Max(1f, Mathf.Lerp(config.stabilizationDistance, focus, eyes.Gain));
+            float pitch = gaze.Pitch + eyes.Pitch + pose.Pitch + Mathf.Atan2(pose.Up, dist) * Mathf.Rad2Deg * stab;
+            float yaw = gaze.Yaw + eyes.Yaw + pose.Yaw - Mathf.Atan2(pose.Side, dist) * Mathf.Rad2Deg * stab;
 
             Camera.transform.SetPositionAndRotation(pos, Quaternion.Euler(pitch, yaw, pose.Roll));
             Camera.fieldOfView = gaze.Fov(config);

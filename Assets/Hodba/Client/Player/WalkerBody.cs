@@ -20,6 +20,7 @@ namespace Hodba.Client
         readonly PostureLayer _posture;
         readonly HeadSpring _head = new HeadSpring();
         readonly MotionBudget _budget = new MotionBudget();
+        readonly EyeWander _eyes;
         readonly Eyelids _eyelids;
         readonly SunIrritant _sun = new SunIrritant();
         double _time;
@@ -28,7 +29,10 @@ namespace Hodba.Client
         public PoseDelta Pose { get; private set; }
         public GaitState Gait => _gait.State;
         public ExertionState Exertion => _exertion.State;
+        /// <summary>Куда глаза смотрят сами, относительно головы.</summary>
+        public EyeState Eyes => _eyes.State;
         public EyelidState Eyelids => _eyelids.State;
+        public Habituation Habituation => _eyes.Habituation;
         /// <summary>0..1 — насколько солнце бьёт в глаз (до век).</summary>
         public float SunStimulus => _sun.Stimulus;
         /// <summary>0..1 — насколько приглушён фон ради события.</summary>
@@ -49,12 +53,19 @@ namespace Hodba.Client
             _budget.Add(_breath);
             _budget.Add(_posture);
 
+            _eyes = new EyeWander(seed, Events);
+            _eyes.Add(new HorizonSource());
+            _eyes.Add(new GroundSource());
+            _eyes.Add(new StoneSource(world.Info.Seed, config.StoneLayout, config.BoulderLayout));
+            _eyes.Add(new AversionSource());
+
             _eyelids = new Eyelids(seed);
             _eyelids.Add(_sun);
             _eyelids.Add(new WindIrritant());
 
             Events.Step += e => _exertion.OnStep(e, _config.exertion);
             Events.Body += e => _exertion.OnBodyEvent(e, _config.exertion);
+            Events.Body += e => _eyes.OnBodyEvent(e, _config.eyes);
             Events.Body += e => _eyelids.OnBodyEvent(e, _config.eyelids);
         }
 
@@ -78,7 +89,22 @@ namespace Hodba.Client
             var head = _head.Filter(mixed, ctx.Dt, c.pose);
             Pose = _budget.Limit(head, ctx.Dt, c.pose);
 
-            _eyelids.Tick(ctx, ctx.HeadForward, c.eyelids);
+            var attention = new AttentionInputs(_exertion.State.Caution, _gait.State.AheadChange, c.eyeHeight);
+            _eyes.Tick(ctx, attention, c.eyes, _budget.Duck);
+
+            var eyes = _eyes.State;
+            var view = BodyContext.Direction(ctx.HeadYaw + eyes.Yaw, ctx.HeadPitch + eyes.Pitch);
+            _eyelids.Tick(ctx, view, c.eyelids);
+        }
+
+        /// <summary>
+        /// Игрок взял взгляд: глаза отдают свой взгляд голове (картинка не двигается) и замолкают.
+        /// Намерение и курс это не трогает (<see cref="GazeController.Absorb"/>).
+        /// </summary>
+        public void YieldEyes(GazeController gaze)
+        {
+            var offset = _eyes.YieldToPlayer();
+            gaze.Absorb(offset.x, offset.y, _config);
         }
 
         /// <summary>После телепорта: шаги с нуля, без шквала следов.</summary>
