@@ -13,23 +13,196 @@ MonoBehaviour:
   m_Name: FieldConfig
   m_EditorClassIdentifier: Hodba.Client::Hodba.Client.FieldConfig
   seed: 1
+  worldKind: 0
+  debugHeadwind: 0
   walk:
-    BaseSpeed: 1.35
+    BaseSpeed: 1
     AccelTime: 1.2
     DecelTime: 0.8
     MaxTurnRate: 25
-    StepLength: 0.72
+    StepLength: 0.65
+    LoosenessDrag: 0.2
   eyeHeight: 1.65
   fov: 60
-  bobVertical: 0.035
-  bobLateral: 0.025
-  bobRoll: 0.6
-  stepIrregularity: 0.12
   gazeStabilization: 0.7
   stabilizationDistance: 10
-  breathAmplitude: 0.004
-  breathRate: 0.25
-  turnLean: 0.03
+  gait:
+    bobVertical: 0.035
+    bobLateral: 0.025
+    bobRoll: 0.6
+    bobPitch: 0.3
+    bobSurge: 0.008
+    turnLean: 0.03
+    stepJitter: 0.07
+    drift: 0.12
+    strideJitter: 0.025
+    peakSkew: 0.1
+    driftLowestHz: 0.004
+    impactKick: 0.07
+    impactNod: 8
+    slopeLean: 12
+    accelLean: 1.2
+    footOffset: 0.12
+    footReach: 0.35
+    lookAhead: 2.5
+    anticipation: 0.08
+    surfaces:
+    - kind: 0
+      sink: 0.014
+      impact: 0.45
+      bounce: 0.85
+      stride: 0.95
+      caution: 0.3
+      soundGain: 0.85
+      soundPitch: 0.94
+      soundCutoff: 3200
+      scuff: 0.35
+    - kind: 1
+      sink: 0.003
+      impact: 1
+      bounce: 1
+      stride: 1
+      caution: 0.03
+      soundGain: 1
+      soundPitch: 1.03
+      soundCutoff: 9000
+      scuff: 0.08
+    - kind: 2
+      sink: 0
+      impact: 1.2
+      bounce: 1.02
+      stride: 0.97
+      caution: 0.2
+      soundGain: 1.05
+      soundPitch: 1.1
+      soundCutoff: 12000
+      scuff: 0.15
+    footRadius: 0.16
+    avoidChance: 0.75
+    alwaysAvoidSize: 0.28
+    stumbleChance: 0.12
+    stumbleKick: 0.3
+    stumbleNod: 45
+    firstStep: 0.65
+    startLean: 6
+    stopSettle: 7
+    gearLag: 0.28
+    gearNod: 6
+    shuffleAngle: 35
+    impactHz: 7
+    eventHz: 2.8
+    leanHz: 1.2
+  exertion:
+    baseEffort: 0.3
+    uphillEffort: 5
+    looseEffort: 0.35
+    accelEffort: 0.25
+    loadRise: 10
+    loadFall: 45
+    breathRest: 0.23
+    breathHard: 0.62
+    depthRest: 0.6
+    depthHard: 1.4
+    breathAmplitude: 0.004
+    breathPitch: 0.12
+    stepsPerBreathCalm: 4
+    stepsPerBreathHard: 2
+    coupling: 0.5
+    phaseNudge: 0.15
+    cautionRise: 2.5
+    cautionFall: 40
+    downhillCaution: 3
+    aheadCaution: 0.5
+    stumbleCaution: 0.6
+  pose:
+    headHz: 5
+    headDamping: 0.55
+    headRotHz: 4
+    headRotDamping: 0.6
+    postureSway: 0.004
+    posturePitch: 0.25
+    postureRoll: 0.12
+    postureWhileWalking: 0.5
+    offsetLimit: {x: 0.06, y: 0.05, z: 0.05}
+    angleLimit: {x: 5, y: 3, z: 2.5}
+    offsetRate: 0.6
+    angleRate: 45
+    duckDepth: 0.7
+    duckRise: 0.08
+    duckFall: 1.2
+  eyelids:
+    blinkMedian: 6
+    blinkSpread: 0.6
+    doubleBlink: 0.04
+    closeTime: 0.08
+    holdTime: 0.03
+    openTime: 0.18
+    blinkDepth: 0.9
+    focusBlinkRate: 0.5
+    stumbleBlink: 0.8
+    gazeShiftBlink: 0.3
+    squintUpper: 0.45
+    squintLower: 0.4
+    squintRise: 0.35
+    squintFall: 1.5
+    squintFlutter: 0.06
+    squintGlareRelief: 0.55
+    sunPower: 6
+    sunThreshold: 0.15
+    middaySquint: 0.2
+    sunBlink: 0.4
+    windSquint: 0.8
+    windBlink: 1
+  eyes:
+    driftYaw: 1.5
+    driftPitch: 0.8
+    driftLowestHz: 0.04
+    dwellSpeed: 0.2
+    moveMedian: 3
+    dwellMedian: 1
+    dwellSpread: 0.7
+    shiftMedian: 5
+    shiftSpread: 0.7
+    centerHz: 0.5
+    centerDamping: 0.95
+    centerMaxSpeed: 30
+    maxYaw: 8
+    maxDown: 25
+    maxUp: 5
+    shiftBlinkAngle: 8
+    horizonWeight: 1
+    stayWeight: 0.8
+    horizonYaw: 4
+    horizonDwell: 4
+    groundBase: 0.08
+    groundCaution: 0.6
+    groundChange: 0.4
+    obstacleLook: 0.5
+    groundDwell: 1.2
+    stoneWeight: 0.5
+    boulderWeight: 1.2
+    stoneRadius: 40
+    boulderRadius: 400
+    stoneDwell: 1.5
+    attraction: 0.35
+    fixationGain: 0.05
+    presenceGain: 0.0002
+    habituationHours: 6
+    boulderHabituation: 0.4
+    sunAversion: 1.5
+    windDown: 3
+    resumeMedian: 3.5
+    resumeSpread: 0.5
+    resumeRamp: 2
+  periphery:
+    start: 0.6
+    blur: 0.35
+    desaturate: 0.15
+    radius: 1.5
+    tunnelFrom: 0.5
+    tunnelInward: 0.25
+    tunnelBlur: 0.4
+    tunnelDarken: 0.35
   lookSensitivity: 110
   lookSmoothing: 0.06
   neckYawLimit: 100
@@ -437,7 +610,6 @@ MonoBehaviour:
   starBrightness: 1.4
   glareExposure: 1.1
   glareBloom: 2.2
-  glarePower: 6
   glareRise: 1.2
   glareFall: 5
   baseBloom: 0.35
@@ -522,10 +694,12 @@ MonoBehaviour:
   windGustLoop: {fileID: 8300000, guid: 896a1098d351e514880b1e4330c58c30, type: 3}
   ashHissLoop: {fileID: 8300000, guid: dfcd81fe9abcf254697f929cba530157, type: 3}
   ashHissVolume: 0.4
+  breathVolume: 0.35
+  gearVolume: 0.3
+  stepDetailVolume: 0.5
   footprintMax: 1500
   footprintLifetimeMinutes: 180
   footprintSize: {x: 0.14, y: 0.32}
-  footprintOffset: 0.12
   footprintTexture: {fileID: 0}
   groundMaterial: {fileID: 2100000, guid: 317b0fa68f8cea64bb45c015860df9ab, type: 2}
   skyMaterial: {fileID: 2100000, guid: 0a27f2ef0af31944299b1e8ccb78467d, type: 2}

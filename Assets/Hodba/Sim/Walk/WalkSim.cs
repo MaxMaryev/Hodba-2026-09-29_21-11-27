@@ -7,7 +7,7 @@ namespace Hodba.Sim.Walk
     [Serializable]
     public struct WalkParams
     {
-        /// <summary>Скорость по ровному, м/с. Настоящий пеший ход ~5 км/ч.</summary>
+        /// <summary>Скорость по ровному, м/с. Неспешный путник с грузом — около 3,6 км/ч.</summary>
         public float BaseSpeed;
         /// <summary>Сколько секунд до полного шага из стойки.</summary>
         public float AccelTime;
@@ -22,11 +22,11 @@ namespace Hodba.Sim.Walk
 
         public static WalkParams Default => new WalkParams
         {
-            BaseSpeed = 1.35f,
+            BaseSpeed = 1.0f,
             AccelTime = 1.2f,
             DecelTime = 0.8f,
             MaxTurnRate = 25f,
-            StepLength = 0.72f,
+            StepLength = 0.65f,
             LoosenessDrag = 0.2f,
         };
     }

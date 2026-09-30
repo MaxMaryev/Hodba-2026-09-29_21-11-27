@@ -44,7 +44,7 @@ namespace Hodba.Tests
             var gaps = starts.Zip(starts.Skip(1), (a, b) => b - a).OrderBy(g => g).ToArray();
             double median = gaps[gaps.Length / 2];
             TestContext.WriteLine($"морганий {starts.Count}, медиана паузы {median:0.00} с, самая долгая {gaps.Last():0.0} с, глубже всего {deepest:0.00}");
-            Assert.That(median, Is.InRange(1.5, 6.0));
+            Assert.That(median, Is.InRange(3.0, 10.0));
             Assert.That(gaps.Last(), Is.GreaterThan(median * 3), "изредка долго не моргает");
             Assert.That(gaps.Count(g => g < 0.6), Is.GreaterThan(0), "бывают двойные");
             Assert.That(deepest, Is.LessThan(0.97f), "обычное моргание — не полная тьма");
@@ -64,7 +64,7 @@ namespace Hodba.Tests
 
             TestContext.WriteLine($"за 10 минут: спокойно {calm}, всматриваясь {focused}, ветер в лицо {wind}");
             Assert.That(focused, Is.LessThan(calm * 0.75f));
-            Assert.That(wind, Is.GreaterThan(calm * 1.5f));
+            Assert.That(wind, Is.GreaterThan(calm * 1.4f));
         }
 
         [Test]

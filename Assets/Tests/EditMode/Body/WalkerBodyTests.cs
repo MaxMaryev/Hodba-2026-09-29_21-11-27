@@ -31,7 +31,7 @@ namespace Hodba.Tests
                 double hardSum = 0, looseSum = 0;
                 int hardN = 0, looseN = 0;
                 const float dt = 1f / 30f;
-                for (int i = 0; i < 30 * 60 * 5 && sim.Position.Z < 240_000; i++)
+                for (int i = 0; i < 30 * 60 * 8 && sim.Position.Z < 240_000; i++)
                 {
                     sim.Step(dt, world);
                     body.Tick(BodyContext.Walk(dt, body.Time + dt, sim, world));

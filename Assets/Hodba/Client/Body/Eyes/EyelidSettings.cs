@@ -10,7 +10,7 @@ namespace Hodba.Client.Body
     public struct EyelidSettings
     {
         [Header("Моргание")]
-        [Tooltip("Медиана паузы между морганиями, с (у человека 3–4 с).")]
+        [Tooltip("Медиана паузы между морганиями, с (у человека 3–4 с, но на экране каждое моргание заметнее — реже).")]
         public float blinkMedian;
         [Tooltip("Разброс пауз (σ логарифма): больше — чаще «залипания» без моргания.")]
         [Range(0f, 1.5f)] public float blinkSpread;
@@ -63,16 +63,16 @@ namespace Hodba.Client.Body
 
         public static EyelidSettings Default => new EyelidSettings
         {
-            blinkMedian = 3.5f,
+            blinkMedian = 6f,
             blinkSpread = 0.6f,
-            doubleBlink = 0.08f,
+            doubleBlink = 0.04f,
             closeTime = 0.08f,
             holdTime = 0.03f,
             openTime = 0.18f,
             blinkDepth = 0.9f,
             focusBlinkRate = 0.5f,
             stumbleBlink = 0.8f,
-            gazeShiftBlink = 0.5f,
+            gazeShiftBlink = 0.3f,
 
             squintUpper = 0.45f,
             squintLower = 0.4f,
@@ -84,10 +84,10 @@ namespace Hodba.Client.Body
             sunPower = 6f,
             sunThreshold = 0.15f,
             middaySquint = 0.2f,
-            sunBlink = 1f,
+            sunBlink = 0.4f,
 
             windSquint = 0.8f,
-            windBlink = 2.5f,
+            windBlink = 1f,
         };
     }
 }
