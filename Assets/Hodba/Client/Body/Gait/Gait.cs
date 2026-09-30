@@ -39,6 +39,9 @@ namespace Hodba.Client.Body
             public SurfaceKind Kind;
             public float Looseness;
             public bool OnStone, Stumble;
+            public float Roughness;
+            /// <summary>Высота земли под этой стопой, м.</summary>
+            public float Height;
         }
 
         const int MaxStepsPerFrame = 64;
@@ -53,6 +56,7 @@ namespace Hodba.Client.Body
         readonly Spring _impactUp = new Spring(), _impactPitch = new Spring();
         readonly Spring _eventUp = new Spring(), _eventPitch = new Spring(), _eventRoll = new Spring();
         readonly Spring _lean = new Spring(), _sink = new Spring();
+        readonly Spring _support = new Spring(), _footRoll = new Spring(), _footPitch = new Spring();
 
         Shape _prev, _cur;
         double _stepStart;
@@ -61,6 +65,7 @@ namespace Hodba.Client.Body
         bool _planStone, _planStumble;
         float _blend, _lastSpeed, _sinkDepth, _event, _gearTimer = -1f;
         float _groundCaution, _aheadChange;
+        float _heightLeft, _heightRight, _supportTarget;
 
         public MotionRole Role => MotionRole.Rhythm;
         public PoseDelta Pose { get; private set; }
@@ -79,10 +84,18 @@ namespace Hodba.Client.Body
         }
 
         /// <summary>После телепорта или долгого отсутствия: шаги считаются заново, без шквала.</summary>
-        public void Reset(double distance)
+        public void Reset(double distance, float groundHeight)
         {
             _stepStart = distance;
             _planStone = _planStumble = false;
+            SnapSupport(groundHeight);
+        }
+
+        /// <summary>Обе стопы — на земле под человеком (старт, телепорт).</summary>
+        void SnapSupport(float height)
+        {
+            _heightLeft = _heightRight = _supportTarget = height;
+            _support.Reset(height);
         }
 
         public void Tick(in BodyContext ctx, in GaitSettings s, in ExertionState ex)
@@ -97,6 +110,7 @@ namespace Hodba.Client.Body
                 _stepStart = sim.Distance;
                 _cur = _prev = Standing(stepLength);
                 _lastSpeed = sim.Speed;
+                SnapSupport(ctx.World.SampleHeightMm(sim.Position.X, sim.Position.Z) / 1000f);
             }
 
             float accel = dt > 0f ? (sim.Speed - _lastSpeed) / dt : 0f;
@@ -120,7 +134,7 @@ namespace Hodba.Client.Body
                 var touch = Land(ctx, s, d);
                 _prev = _cur;
                 _stanceLeft = touch.Left;
-                _cur = Next(ctx, s, ex, touch.Feel, ahead, stepLength);
+                _cur = Next(ctx, s, ex, touch.Feel, touch.Roughness, ahead, stepLength);
                 Plan(ctx, s, ex, touch.Looseness, d);
                 bool more = d - _stepStart >= _cur.Length;
                 Commit(ctx, s, touch, felt: !more);
@@ -138,7 +152,7 @@ namespace Hodba.Client.Body
 
             float freq = _cur.Length > 0f ? sim.Speed / _cur.Length : 0f;
             float u = Phase(d);
-            State = new GaitState(_blend, u, _stanceLeft, freq, _groundCaution, _aheadChange, _lean.Value, _event);
+            State = new GaitState(_blend, u, _stanceLeft, freq, _groundCaution, _aheadChange, _lean.Value, _event, _support.Value);
         }
 
         float Phase(double d) => _cur.Length > 0f ? Mathf.Clamp01((float)((d - _stepStart) / _cur.Length)) : 0f;
@@ -173,15 +187,24 @@ namespace Hodba.Client.Body
             float lean = sim.Slope * s.slopeLean + Mathf.Clamp(accel, -3f, 3f) * s.accelLean;
             _lean.Step(lean, dt, s.leanHz, 0.7f);
 
+            // Неровная земля: тело стоит на опорной стопе и переходит на новую за долю шага; разница высот
+            // левой и правой стопы кренит корпус, опорной и прошлой — чуть наклоняет. Тело это частично гасит.
+            _support.Step(_supportTarget, dt, s.supportHz, 0.9f);
+            float across = Mathf.Atan2(_heightRight - _heightLeft, 2f * Mathf.Max(0.05f, s.footOffset)) * Mathf.Rad2Deg;
+            float stanceH = _stanceLeft ? _heightLeft : _heightRight, otherH = _stanceLeft ? _heightRight : _heightLeft;
+            float along = Mathf.Atan2(stanceH - otherH, Mathf.Max(0.2f, _cur.Length)) * Mathf.Rad2Deg;
+            _footRoll.Step(-across * s.footRoll, dt, s.leanHz * 2f, 0.8f);
+            _footPitch.Step(-along * s.footPitch, dt, s.leanHz * 2f, 0.8f);
+
             roll += -sim.TurnRate * s.turnLean + _sig.HeadTilt;
 
             return new PoseDelta(
                 up + _sink.Value + _impactUp.Value + _eventUp.Value,
                 side,
                 surge,
-                pitch + _impactPitch.Value + _eventPitch.Value + _lean.Value,
+                pitch + _impactPitch.Value + _eventPitch.Value + _lean.Value + _footPitch.Value,
                 0f,
-                roll + _eventRoll.Value);
+                roll + _eventRoll.Value + _footRoll.Value);
         }
 
         Touchdown Land(in BodyContext ctx, in GaitSettings s, double d)
@@ -199,6 +222,8 @@ namespace Hodba.Client.Body
                 Kind = surface.Kind,
                 Feel = SurfaceFeel.Find(s.surfaces, surface.Kind),
                 Looseness = surface.Looseness / 65535f,
+                Roughness = surface.Roughness / 65536f,
+                Height = ctx.World.SampleHeightMm(contact.X, contact.Z) / 1000f,
                 OnStone = _planStone,
                 Stumble = _planStumble,
             };
@@ -211,9 +236,15 @@ namespace Hodba.Client.Body
             var sim = ctx.Sim;
             float force = Mathf.Lerp(0.45f, 1f, ctx.SpeedNorm) * (1f + Gauss() * 0.08f) * (1f + Mathf.Max(0f, sim.Slope) * 1.5f);
             if (t.Stumble) force *= 1.5f;
-            bool scuff = t.Stumble || _rng.Chance(t.Feel.scuff * (0.5f + t.Looseness));
+            bool scuff = t.Stumble || _rng.Chance(t.Feel.scuff * (0.5f + t.Looseness) + s.roughScuff * t.Roughness);
 
-            _groundCaution = t.Feel.caution;
+            // Стопа встала на свою высоту — тело переносит вес на неё (даже если шаг не прочувствован: следы и
+            // опора не должны расходиться после длинного кадра).
+            if (t.Left) _heightLeft = t.Height;
+            else _heightRight = t.Height;
+            _supportTarget = t.Height;
+
+            _groundCaution = Mathf.Max(t.Feel.caution, t.Roughness * s.roughCaution);
             if (felt)
             {
                 // Спуск: тело придерживает, удар мягче.
@@ -243,7 +274,7 @@ namespace Hodba.Client.Body
                 t.OnStone, t.Stumble, scuff, duration, felt));
         }
 
-        Shape Next(in BodyContext ctx, in GaitSettings s, in ExertionState ex, in SurfaceFeel feel, in GroundAhead ahead, float stepLength)
+        Shape Next(in BodyContext ctx, in GaitSettings s, in ExertionState ex, in SurfaceFeel feel, float roughness, in GroundAhead ahead, float stepLength)
         {
             var sim = ctx.Sim;
             double t = ctx.Time;
@@ -257,6 +288,7 @@ namespace Hodba.Client.Body
                            * (1f + dL * s.drift * 0.25f + Gauss() * s.strideJitter * (_disturb > 0 ? 3f : 1f))
                            * (1f + _sig.LegAsymmetry * 0.02f * legSign)
                            * (1f - 0.12f * caution)
+                           * (1f - s.roughStride * roughness)
                            * (1f - s.anticipation * ahead.Change(sim.Slope))
                            * (1f - 0.8f * Mathf.Max(0f, sim.Slope));
             if (_firstSteps > 0)
@@ -323,8 +355,9 @@ namespace Hodba.Client.Body
             _stepStart = ctx.Sim.Distance;
             _firstSteps = 2;
             _prev = Standing(stepLength);
-            var feel = SurfaceFeel.Find(s.surfaces, ctx.World.SampleSurface(ctx.Sim.Position.X, ctx.Sim.Position.Z).Kind);
-            _cur = Next(ctx, s, ex, feel, ahead, stepLength);
+            var here = ctx.World.SampleSurface(ctx.Sim.Position.X, ctx.Sim.Position.Z);
+            var feel = SurfaceFeel.Find(s.surfaces, here.Kind);
+            _cur = Next(ctx, s, ex, feel, here.Roughness / 65536f, ahead, stepLength);
             _lean.Kick(s.startLean);
             Bump(0.3f, BodyEventKind.Start);
         }
@@ -350,6 +383,11 @@ namespace Hodba.Client.Body
             _stanceLeft = left;
             var contact = FootPoint(ctx, left, 0.05f, s.footOffset);
             var surface = ctx.World.SampleSurface(contact.X, contact.Z);
+            // Приставил или переступил: стоит на обеих — опора посередине.
+            float h = ctx.World.SampleHeightMm(contact.X, contact.Z) / 1000f;
+            if (left) _heightLeft = h;
+            else _heightRight = h;
+            _supportTarget = (_heightLeft + _heightRight) * 0.5f;
             _events?.Emit(new StepEvent(left, contact, ctx.Sim.Course, force, surface.Kind, surface.Looseness / 65535f,
                 false, false, false, 0.5f, true));
         }

@@ -19,6 +19,8 @@ namespace Hodba.Sim.Walk
         public float StepLength;
         /// <summary>Сколько скорости отнимает самый рыхлый пепел, доля. Стартовое значение, подбирается.</summary>
         public float LoosenessDrag;
+        /// <summary>Сколько скорости отнимают бугры и наносы в полную силу, доля. Стартовое значение.</summary>
+        public float RoughnessDrag;
 
         public static WalkParams Default => new WalkParams
         {
@@ -28,6 +30,7 @@ namespace Hodba.Sim.Walk
             MaxTurnRate = 25f,
             StepLength = 0.6f,
             LoosenessDrag = 0.2f,
+            RoughnessDrag = 0.1f,
         };
     }
 
@@ -60,6 +63,9 @@ namespace Hodba.Sim.Walk
 
         /// <summary>Рыхлость под ногами: 0 — твёрдо, 1 — вязнешь.</summary>
         public float Looseness { get; private set; }
+
+        /// <summary>Неровность под ногами: 0 — стекло, 1 — бугры и наносы.</summary>
+        public float Roughness { get; private set; }
 
         WorldPos _position;
         double _remX, _remZ; // доли миллиметра, чтобы медленная ходьба не терялась при округлении
@@ -99,10 +105,13 @@ namespace Hodba.Sim.Walk
             double dirZ = Math.Cos(rad);
 
             Slope = SampleSlope(world, dirX, dirZ);
-            Looseness = world.SampleSurface(_position.X, _position.Z).Looseness / 65535f;
+            var surface = world.SampleSurface(_position.X, _position.Z);
+            Looseness = surface.Looseness / 65535f;
+            Roughness = surface.Roughness / 65536f;
 
             float target = WantsWalk
-                ? Params.BaseSpeed * ToblerFactor(Slope) * LoosenessFactor(Looseness, Params.LoosenessDrag) * AttentionFactor
+                ? Params.BaseSpeed * ToblerFactor(Slope) * LoosenessFactor(Looseness, Params.LoosenessDrag)
+                  * LoosenessFactor(Roughness, Params.RoughnessDrag) * AttentionFactor
                 : 0f;
             float rate = target > Speed
                 ? Params.BaseSpeed / Math.Max(0.01f, Params.AccelTime)
@@ -132,13 +141,21 @@ namespace Hodba.Sim.Walk
             Speed = wantsWalk ? Params.BaseSpeed : 0f;
         }
 
+        /// <summary>
+        /// Уклон по длинной базе: по три точки впереди и позади (1, 2, 3 м). Рябь и зерно под ногами
+        /// усредняются и не дёргают ход; настоящий склон и крупные бугры — остаются.
+        /// </summary>
         float SampleSlope(IWorldQuery world, double dirX, double dirZ)
         {
-            const long probe = 1000; // 1 м вперёд и назад
-            long ax = _position.X - (long)(dirX * probe), az = _position.Z - (long)(dirZ * probe);
-            long bx = _position.X + (long)(dirX * probe), bz = _position.Z + (long)(dirZ * probe);
-            long dh = world.SampleHeightMm(bx, bz) - world.SampleHeightMm(ax, az);
-            return (float)(dh / (2.0 * probe));
+            long ahead = 0, behind = 0;
+            for (long k = 1; k <= 3; k++)
+            {
+                long dx = (long)(dirX * k * 1000), dz = (long)(dirZ * k * 1000);
+                ahead += world.SampleHeightMm(_position.X + dx, _position.Z + dz);
+                behind += world.SampleHeightMm(_position.X - dx, _position.Z - dz);
+            }
+            // Среднее плечо — 2 м вперёд и 2 м назад.
+            return (float)((ahead - behind) / 3.0 / 4000.0);
         }
 
         /// <summary>

@@ -107,17 +107,15 @@ namespace Hodba.Client
         public float contrast = 8f;
         [Range(0f, 1f)] public float vignette = 0.2f;
 
-        [Header("Земля")]
-        public int chunkSize = 512;
-        [Tooltip("Радиус видимой земли в чанках.")]
-        public int viewChunks = 6;
-        public float lod0Distance = 800f;
-        public float lod1Distance = 1700f;
-        public int lod0Resolution = 128;
-        public int lod1Resolution = 32;
-        public int lod2Resolution = 8;
-        [Tooltip("Сколько чанков достраивать за кадр.")]
-        public int chunksPerFrame = 2;
+        [Header("Земля: кольца вокруг путника")]
+        [Tooltip("Сколько колец. Каждое вдвое крупнее предыдущего; 9 колец от 0,25 м — это ~4 км, дальше дымка.")]
+        public int clipLevels = 9;
+        [Tooltip("Шаг сетки у ног, м. Стартовое значение, проверить на телефоне.")]
+        public float clipSpacing = 0.25f;
+        [Tooltip("Ширина перетекания в следующее кольцо, клеток.")]
+        public float clipMorph = 12f;
+        [Tooltip("Сколько ближних колец отбрасывают тени (рябь и бугры на рассвете).")]
+        public int clipShadowLevels = 2;
 
         [Header("Камни")]
         public List<Mesh> stoneMeshes = new List<Mesh>();

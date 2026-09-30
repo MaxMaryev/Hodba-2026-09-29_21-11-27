@@ -3,11 +3,11 @@ using System;
 namespace Hodba.World.Gen
 {
     /// <summary>
-    /// Полигон для настройки тела: один прямой маршрут на север от (0,0), где за пару минут
+    /// Полигон для настройки тела: один прямой маршрут на север от (0,0), где за несколько минут
     /// проходишь всё, что ходьба должна различать. Полосы поперёк курса, так что шаг с твёрдого
     /// на рыхлое делает сначала одна нога, потом другая.
-    /// 0–60 м — твёрдо и ровно; 60–130 м — рыхлый пепел с лёгкой волной; 130–210 м — подъём ~12%;
-    /// дальше — плато. Позади старта — то же твёрдое ровное.
+    /// 0–60 м — твёрдо, стекло; 60–130 м — рыхлый пепел в ряби, с лёгкой волной; 130–210 м — подъём ~12%
+    /// по корке с зерном; дальше — плато в буграх и наносах. Позади старта — то же стекло.
     /// </summary>
     public sealed class ProvingGround : IWorldQuery
     {
@@ -16,10 +16,14 @@ namespace Hodba.World.Gen
         const long HardEnd = 60_000, LooseEnd = 130_000, ClimbEnd = 210_000;
         const double Grade = 0.12;
         const long Ease = 6_000; // мягкий перегиб в начале и в конце подъёма, мм
+        const long Blend = 4_000; // характер рельефа меняется на 4 м, а не по линии
+
+        readonly uint _seed;
 
         public ProvingGround(uint seed)
         {
-            Info = new WorldInfo(seed, 1, Id);
+            _seed = seed;
+            Info = new WorldInfo(seed, 2, Id);
         }
 
         public WorldInfo Info { get; }
@@ -37,8 +41,28 @@ namespace Hodba.World.Gen
             }
 
             h += Climb(zMm);
+
+            var s = SampleSurface(xMm, zMm);
+            h += MicroRelief.Evaluate(xMm, zMm, _seed, s.Looseness, s.Ripple, Bumps(zMm)).HeightMm;
             return h;
         }
+
+        public SurfaceSample SampleSurface(long xMm, long zMm)
+        {
+            if (zMm < HardEnd) return new SurfaceSample(SurfaceKind.PackedAsh, 8_000);
+
+            if (zMm < LooseEnd)
+            {
+                int ripple = MicroRelief.SmoothQ(Math.Min(zMm - HardEnd, LooseEnd - zMm), 0, Blend);
+                return new SurfaceSample(SurfaceKind.FineAsh, 55_000, MicroRelief.RoughnessOf(ripple, 0), ripple);
+            }
+
+            int bumps = Bumps(zMm);
+            return new SurfaceSample(SurfaceKind.PackedAsh, 20_000, MicroRelief.RoughnessOf(0, bumps), 0);
+        }
+
+        /// <summary>Бугры — только на плато.</summary>
+        static int Bumps(long zMm) => MicroRelief.SmoothQ(zMm - ClimbEnd, 0, Blend);
 
         /// <summary>Подъём со сглаженными перегибами: интеграл от плавно нарастающего уклона.</summary>
         static long Climb(long z)
@@ -64,13 +88,6 @@ namespace Hodba.World.Gen
             double t = (x - p) / w;
             // ∫ (3t² − 2t³) dt = t³ − t⁴/2
             return w * (t * t * t - 0.5 * t * t * t * t);
-        }
-
-        public SurfaceSample SampleSurface(long xMm, long zMm)
-        {
-            if (zMm >= HardEnd && zMm < LooseEnd) return new SurfaceSample(SurfaceKind.FineAsh, 55_000);
-            if (zMm < HardEnd) return new SurfaceSample(SurfaceKind.PackedAsh, 8_000);
-            return new SurfaceSample(SurfaceKind.PackedAsh, 20_000);
         }
     }
 }

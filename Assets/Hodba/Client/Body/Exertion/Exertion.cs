@@ -75,7 +75,8 @@ namespace Hodba.Client.Body
             _lastSpeed = sim.Speed;
             _hasSpeed = true;
 
-            float effort = ctx.SpeedNorm * (s.baseEffort + Mathf.Max(0f, sim.Slope) * s.uphillEffort + sim.Looseness * s.looseEffort)
+            float effort = ctx.SpeedNorm * (s.baseEffort + Mathf.Max(0f, sim.Slope) * s.uphillEffort + sim.Looseness * s.looseEffort
+                                            + sim.Roughness * s.roughEffort)
                            + Mathf.Max(0f, accel) * s.accelEffort;
             _effort = Approach(_effort, Mathf.Clamp01(effort), 0.5f, 0.5f, dt);
             _load = Approach(_load, _effort, s.loadRise, s.loadFall, dt);

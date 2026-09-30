@@ -49,11 +49,25 @@ namespace Hodba.Client.Body
         public float footOffset;
         [Tooltip("Насколько стопа при ударе впереди тела, доля шага.")]
         [Range(0f, 0.8f)] public float footReach;
+        [Tooltip("Насколько корпус кренится от разницы высот левой и правой стопы, доля (тело гасит остальное).")]
+        [Range(0f, 1f)] public float footRoll;
+        [Tooltip("Насколько наклоняется от разницы высот опорной и прошлой стопы, доля.")]
+        [Range(0f, 1f)] public float footPitch;
+        [Tooltip("Как быстро вес переходит на новую стопу, Гц.")]
+        public float supportHz;
         [Tooltip("Куда тело заглядывает заранее, м.")]
         public float lookAhead;
         [Tooltip("Насколько шаг укорачивается перед переменой земли, доля.")]
         [Range(0f, 0.3f)] public float anticipation;
         public SurfaceFeel[] surfaces;
+
+        [Header("Неровная земля")]
+        [Tooltip("Сколько осторожности дают бугры в полную силу.")]
+        [Range(0f, 1f)] public float roughCaution;
+        [Tooltip("Насколько короче шаг на буграх, доля.")]
+        [Range(0f, 0.4f)] public float roughStride;
+        [Tooltip("Насколько чаще шаркает на буграх.")]
+        [Range(0f, 1f)] public float roughScuff;
 
         [Header("Камни на пути")]
         [Tooltip("Полоса стопы: камень ближе этого к точке постановки — на пути, м.")]
@@ -112,9 +126,16 @@ namespace Hodba.Client.Body
             accelLean = 1.2f,
             footOffset = 0.12f,
             footReach = 0.35f,
+            footRoll = 0.25f,
+            footPitch = 0.1f,
+            supportHz = 3f,
             lookAhead = 2.5f,
             anticipation = 0.08f,
             surfaces = SurfaceFeel.Defaults(),
+
+            roughCaution = 0.5f,
+            roughStride = 0.1f,
+            roughScuff = 0.3f,
 
             footRadius = 0.16f,
             avoidChance = 0.75f,

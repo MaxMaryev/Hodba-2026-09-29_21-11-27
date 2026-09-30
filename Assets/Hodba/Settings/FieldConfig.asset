@@ -22,6 +22,7 @@ MonoBehaviour:
     MaxTurnRate: 25
     StepLength: 0.6
     LoosenessDrag: 0.2
+    RoughnessDrag: 0.1
   eyeHeight: 1.65
   fov: 60
   gazeStabilization: 0.7
@@ -44,6 +45,9 @@ MonoBehaviour:
     accelLean: 1.2
     footOffset: 0.12
     footReach: 0.35
+    footRoll: 0.25
+    footPitch: 0.1
+    supportHz: 3
     lookAhead: 2.5
     anticipation: 0.08
     surfaces:
@@ -77,6 +81,9 @@ MonoBehaviour:
       soundPitch: 1.1
       soundCutoff: 12000
       scuff: 0.3
+    roughCaution: 0.5
+    roughStride: 0.1
+    roughScuff: 0.3
     footRadius: 0.16
     avoidChance: 0.75
     alwaysAvoidSize: 0.28
@@ -96,6 +103,7 @@ MonoBehaviour:
     baseEffort: 0.3
     uphillEffort: 5
     looseEffort: 0.35
+    roughEffort: 0.2
     accelEffort: 0.25
     loadRise: 10
     loadFall: 45
@@ -177,6 +185,7 @@ MonoBehaviour:
     groundBase: 0.08
     groundCaution: 0.6
     groundChange: 0.4
+    groundRough: 0.5
     obstacleLook: 0.5
     groundDwell: 1.2
     stoneWeight: 0.5

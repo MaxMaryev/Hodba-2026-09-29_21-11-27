@@ -20,14 +20,14 @@ namespace Hodba.Client
         }
 
         /// <param name="eyes">Куда глаза смотрят сами. Камера — это глаз: их взгляд поворачивает саму картинку.</param>
-        public void Apply(in PoseDelta pose, in EyeState eyes, WalkSim sim, GazeController gaze, IWorldQuery world, FloatingOrigin origin, FieldConfig config)
+        /// <param name="support">Высота опоры, м: земля под стопой, на которой стоит тело, а не под центром.</param>
+        public void Apply(in PoseDelta pose, in EyeState eyes, float support, WalkSim sim, GazeController gaze, FloatingOrigin origin, FieldConfig config)
         {
-            float ground = world.SampleHeightMm(sim.Position) / 1000f;
             float courseRad = sim.Course * Mathf.Deg2Rad;
             var forward = new Vector3(Mathf.Sin(courseRad), 0f, Mathf.Cos(courseRad));
             var right = new Vector3(forward.z, 0f, -forward.x);
 
-            var pos = origin.ToLocal(sim.Position, ground + config.eyeHeight + pose.Up)
+            var pos = origin.ToLocal(sim.Position, support + config.eyeHeight + pose.Up)
                       + right * pose.Side + forward * pose.Forward;
 
             // Гашение тряски взглядом: глаз держит точку, на которую смотрит, — дорогу у ног сильнее, горизонт слабее.

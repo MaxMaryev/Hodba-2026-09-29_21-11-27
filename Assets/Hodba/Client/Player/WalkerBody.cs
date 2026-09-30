@@ -14,6 +14,7 @@ namespace Hodba.Client
         public readonly BodyEvents Events = new BodyEvents();
 
         readonly FieldConfig _config;
+        readonly IWorldQuery _world;
         readonly Exertion _exertion;
         readonly Gait _gait;
         readonly BreathLayer _breath = new BreathLayer();
@@ -44,6 +45,7 @@ namespace Hodba.Client
         public WalkerBody(FieldConfig config, IWorldQuery world)
         {
             _config = config;
+            _world = world;
             uint seed = config.seed;
             var obstacles = new StoneObstacles(world.Info.Seed, config.StoneLayout);
 
@@ -91,7 +93,7 @@ namespace Hodba.Client
             var head = _head.Filter(mixed, ctx.Dt, c.pose);
             Pose = _budget.Limit(head, ctx.Dt, c.pose);
 
-            var attention = new AttentionInputs(_exertion.State.Caution, _gait.State.AheadChange, c.eyeHeight);
+            var attention = new AttentionInputs(_exertion.State.Caution, _gait.State.AheadChange, c.eyeHeight, ctx.Sim.Roughness);
             _eyes.Tick(ctx, attention, c.eyes, _budget.Duck);
 
             var eyes = _eyes.State;
@@ -110,6 +112,7 @@ namespace Hodba.Client
         }
 
         /// <summary>После телепорта: шаги с нуля, без шквала следов.</summary>
-        public void Reset(WalkSim sim) => _gait.Reset(sim.Distance);
+        public void Reset(WalkSim sim) =>
+            _gait.Reset(sim.Distance, _world.SampleHeightMm(sim.Position.X, sim.Position.Z) / 1000f);
     }
 }

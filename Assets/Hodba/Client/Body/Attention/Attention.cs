@@ -56,12 +56,15 @@ namespace Hodba.Client.Body
         public readonly float Caution;
         public readonly float GroundChange;
         public readonly float EyeHeight;
+        /// <summary>0..1 — неровность под ногами: на буграх чаще смотрят под ноги.</summary>
+        public readonly float Roughness;
 
-        public AttentionInputs(float caution, float groundChange, float eyeHeight)
+        public AttentionInputs(float caution, float groundChange, float eyeHeight, float roughness = 0f)
         {
             Caution = caution;
             GroundChange = groundChange;
             EyeHeight = eyeHeight;
+            Roughness = roughness;
         }
     }
 

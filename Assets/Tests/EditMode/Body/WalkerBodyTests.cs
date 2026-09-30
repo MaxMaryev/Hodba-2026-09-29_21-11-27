@@ -72,7 +72,7 @@ namespace Hodba.Tests
                 Assert.That(h - prev, Is.InRange(-60, 60), $"без ступенек у {z / 1000} м");
                 prev = h;
             }
-            Assert.That(world.SampleHeightMm(0, 230_000) / 1000f, Is.EqualTo(80f * 0.12f).Within(0.05f));
+            Assert.That(world.SampleHeightMm(0, 230_000) / 1000f, Is.EqualTo(80f * 0.12f).Within(0.15f));
         }
     }
 }

@@ -30,7 +30,7 @@ namespace Hodba.Client
         ExposureController _exposure;
         Wind _wind;
         Dust _dust;
-        TerrainStreamer _terrain;
+        ClipmapTerrain _ground;
         StoneScatter _stones;
         Footprints _footprints;
         WindSynth _windAudio;
@@ -96,8 +96,8 @@ namespace Hodba.Client
             _dust = new Dust(config, _origin);
 
             ApplyExternalTextures();
-            _terrain = new TerrainStreamer(_world, _origin, config, config.groundMaterial);
-            _terrain.BuildAll(_sim.Position);
+            _ground = new ClipmapTerrain(_world, _origin, config, config.groundMaterial);
+            _ground.Update(_sim.Position);
             _stones = new StoneScatter(_world, _origin, config, config.stoneMaterial, config.boulderMaterial);
             _footprints = new Footprints(_world, _origin, config, config.footprintMaterial);
 
@@ -147,15 +147,15 @@ namespace Hodba.Client
             _sim.Step(dt, _world);
 
             _origin.Tick(_sim.Position);
-            _terrain.Tick(_sim.Position);
+            _ground.Tick(_sim.Position);
             _stones.Tick(_sim.Position);
 
             // Ветер раньше тела: тело (а потом и веки) чувствует его в этом же кадре.
             _wind.Tick(config, Time.time, _sim.Course);
 
             _walker.Tick(_walker.Context(dt, _sim, _world, _wind, _clock, _gaze, _looking));
-            _rig.Apply(_walker.Pose, _walker.Eyes, _sim, _gaze, _world, _origin, config);
-            _body.Tick(_sim, _world, _origin, _walker.Pose.Up, _walker.Gait.Lean);
+            _rig.Apply(_walker.Pose, _walker.Eyes, _walker.Gait.SupportHeight, _sim, _gaze, _origin, config);
+            _body.Tick(_sim, _walker.Gait.SupportHeight, _origin, _walker.Pose.Up, _walker.Gait.Lean);
             _breathAudio.Set(_walker.Exertion, config.breathVolume * config.masterVolume);
             if (_debug != null) _debug.Sample(dt);
 
@@ -202,7 +202,7 @@ namespace Hodba.Client
             _walker.Reset(_sim);
             _origin.Rebase(pos);
             if (meters > 300.0) _footprints.Clear();
-            _terrain.BuildAll(pos);
+            _ground.Update(pos);
         }
 
         void OnApplicationQuit() => Save();
@@ -211,6 +211,7 @@ namespace Hodba.Client
         {
             _input?.Dispose();
             _eyeRender?.Dispose();
+            _ground?.Dispose();
         }
 
         Camera CreateCamera()

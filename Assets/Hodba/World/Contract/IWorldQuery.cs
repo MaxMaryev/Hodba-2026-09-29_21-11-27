@@ -44,10 +44,18 @@ namespace Hodba.World
         /// <summary>Рыхлость Q16: 0 — твёрдо, 65535 — вязнешь.</summary>
         public readonly int Looseness;
 
-        public SurfaceSample(SurfaceKind kind, int looseness)
+        /// <summary>Неровность под ногами Q16: 0 — стекло, 65535 — бугры и наносы. Свойство места, а не шага.</summary>
+        public readonly int Roughness;
+
+        /// <summary>Рябь от ветра Q16: насколько здесь выражены волны на пепле.</summary>
+        public readonly int Ripple;
+
+        public SurfaceSample(SurfaceKind kind, int looseness, int roughness = 0, int ripple = 0)
         {
             Kind = kind;
             Looseness = looseness;
+            Roughness = roughness;
+            Ripple = ripple;
         }
     }
 

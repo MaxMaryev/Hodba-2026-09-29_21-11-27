@@ -19,9 +19,11 @@ namespace Hodba.Client.Body
         public readonly float Lean;
         /// <summary>0..1 — сила текущего события (камень, спотыкание, остановка).</summary>
         public readonly float EventStrength;
+        /// <summary>Высота опоры, м: земля под стопой, на которой стоит тело (с переходом между стопами).</summary>
+        public readonly float SupportHeight;
 
         public GaitState(float blend, float phase, bool stanceLeft, float stepFrequency, float groundCaution,
-            float aheadChange, float lean, float eventStrength)
+            float aheadChange, float lean, float eventStrength, float supportHeight)
         {
             Blend = blend;
             Phase = phase;
@@ -31,6 +33,7 @@ namespace Hodba.Client.Body
             AheadChange = aheadChange;
             Lean = lean;
             EventStrength = eventStrength;
+            SupportHeight = supportHeight;
         }
     }
 }

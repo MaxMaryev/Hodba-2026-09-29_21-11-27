@@ -6,6 +6,7 @@
         "Hodba.Client.Body",
         "Hodba.Core",
         "Hodba.World.Contract",
+        "Hodba.World.Gen.Flat",
         "Hodba.Sim.Walk",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime"

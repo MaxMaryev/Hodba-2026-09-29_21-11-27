@@ -16,6 +16,8 @@ namespace Hodba.Client.Body
         public float uphillEffort;
         [Tooltip("Сколько добавляет рыхлость при полной рыхлости.")]
         public float looseEffort;
+        [Tooltip("Сколько добавляют бугры и наносы в полную силу.")]
+        public float roughEffort;
         [Tooltip("Сколько добавляет разгон, на м/с².")]
         public float accelEffort;
         [Tooltip("Как быстро копится одышка, с.")]
@@ -60,6 +62,7 @@ namespace Hodba.Client.Body
             baseEffort = 0.3f,
             uphillEffort = 5f,
             looseEffort = 0.35f,
+            roughEffort = 0.2f,
             accelEffort = 0.25f,
             loadRise = 10f,
             loadFall = 45f,

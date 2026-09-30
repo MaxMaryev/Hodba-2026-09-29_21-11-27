@@ -26,7 +26,8 @@ namespace Hodba.Client.Body
             float pitch = Mathf.Atan2(inputs.EyeHeight, d) * Mathf.Rad2Deg;
             // Если голова смотрит далеко в сторону, дорога под ногами вне поля глаз.
             float along = Mathf.Clamp01(Mathf.Cos(WalkSim.DeltaAngle(ctx.HeadYaw, ctx.Sim.Course) * Mathf.Deg2Rad));
-            float weight = (s.groundBase + inputs.Caution * s.groundCaution + inputs.GroundChange * s.groundChange) * along;
+            float weight = (s.groundBase + inputs.Caution * s.groundCaution + inputs.GroundChange * s.groundChange
+                            + inputs.Roughness * s.groundRough) * along;
             into.Add(new GazeCandidate(GazeKind.Ground, GazeSpace.Body, rng.Range(-4f, 4f), pitch, weight, d, s.groundDwell));
         }
     }
