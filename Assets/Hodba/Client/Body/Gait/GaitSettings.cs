@@ -93,7 +93,7 @@ namespace Hodba.Client.Body
 
         public static GaitSettings Default => new GaitSettings
         {
-            bobVertical = 0.035f,
+            bobVertical = 0.024f,
             bobLateral = 0.025f,
             bobRoll = 0.6f,
             bobPitch = 0.3f,
@@ -106,7 +106,7 @@ namespace Hodba.Client.Body
             peakSkew = 0.1f,
             driftLowestHz = 0.004f,
 
-            impactKick = 0.07f,
+            impactKick = 0.04f,
             impactNod = 8f,
             slopeLean = 12f,
             accelLean = 1.2f,

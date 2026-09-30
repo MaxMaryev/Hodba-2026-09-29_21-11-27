@@ -110,7 +110,7 @@ namespace Hodba.Tests
             int before = h.Steps.Count;
             int feltBefore = h.Steps.Count(s => s.Felt);
 
-            h.Tick(1.2f); // провал кадра: ~1,6 м пути, два шага
+            h.Tick(1.6f); // провал кадра: ~1,4 м пути, два шага
 
             Assert.That(h.Steps.Count - before, Is.GreaterThanOrEqualTo(2), "следы не теряются");
             Assert.That(h.Steps.Count(s => s.Felt) - feltBefore, Is.LessThanOrEqualTo(1), "прочувствован один");

@@ -101,7 +101,7 @@ namespace Hodba.Client.Body
         {
             driftYaw = 1.5f,
             driftPitch = 0.8f,
-            driftLowestHz = 0.04f,
+            driftLowestHz = 0.025f,
             dwellSpeed = 0.2f,
             moveMedian = 3f,
             dwellMedian = 1f,
@@ -109,9 +109,9 @@ namespace Hodba.Client.Body
 
             shiftMedian = 5f,
             shiftSpread = 0.7f,
-            centerHz = 0.5f,
+            centerHz = 0.3f,
             centerDamping = 0.95f,
-            centerMaxSpeed = 30f,
+            centerMaxSpeed = 14f,
             maxYaw = 8f,
             maxDown = 25f,
             maxUp = 5f,

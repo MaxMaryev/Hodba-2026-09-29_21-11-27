@@ -36,17 +36,17 @@ namespace Hodba.Client.Body
             new SurfaceFeel
             {
                 kind = SurfaceKind.FineAsh, sink = 0.014f, impact = 0.45f, bounce = 0.85f, stride = 0.95f, caution = 0.3f,
-                soundGain = 0.85f, soundPitch = 0.94f, soundCutoff = 3200f, scuff = 0.35f,
+                soundGain = 0.85f, soundPitch = 0.94f, soundCutoff = 3200f, scuff = 0.6f,
             },
             new SurfaceFeel
             {
                 kind = SurfaceKind.PackedAsh, sink = 0.003f, impact = 1f, bounce = 1f, stride = 1f, caution = 0.03f,
-                soundGain = 1f, soundPitch = 1.03f, soundCutoff = 9000f, scuff = 0.08f,
+                soundGain = 1f, soundPitch = 1.03f, soundCutoff = 9000f, scuff = 0.3f,
             },
             new SurfaceFeel
             {
                 kind = SurfaceKind.Stone, sink = 0f, impact = 1.2f, bounce = 1.02f, stride = 0.97f, caution = 0.2f,
-                soundGain = 1.05f, soundPitch = 1.1f, soundCutoff = 12000f, scuff = 0.15f,
+                soundGain = 1.05f, soundPitch = 1.1f, soundCutoff = 12000f, scuff = 0.3f,
             },
         };
 

@@ -16,18 +16,18 @@ MonoBehaviour:
   worldKind: 0
   debugHeadwind: 0
   walk:
-    BaseSpeed: 1
+    BaseSpeed: 0.85
     AccelTime: 1.2
     DecelTime: 0.8
     MaxTurnRate: 25
-    StepLength: 0.65
+    StepLength: 0.6
     LoosenessDrag: 0.2
   eyeHeight: 1.65
   fov: 60
   gazeStabilization: 0.7
   stabilizationDistance: 10
   gait:
-    bobVertical: 0.035
+    bobVertical: 0.024
     bobLateral: 0.025
     bobRoll: 0.6
     bobPitch: 0.3
@@ -38,7 +38,7 @@ MonoBehaviour:
     strideJitter: 0.025
     peakSkew: 0.1
     driftLowestHz: 0.004
-    impactKick: 0.07
+    impactKick: 0.04
     impactNod: 8
     slopeLean: 12
     accelLean: 1.2
@@ -56,7 +56,7 @@ MonoBehaviour:
       soundGain: 0.85
       soundPitch: 0.94
       soundCutoff: 3200
-      scuff: 0.35
+      scuff: 0.6
     - kind: 1
       sink: 0.003
       impact: 1
@@ -66,7 +66,7 @@ MonoBehaviour:
       soundGain: 1
       soundPitch: 1.03
       soundCutoff: 9000
-      scuff: 0.08
+      scuff: 0.3
     - kind: 2
       sink: 0
       impact: 1.2
@@ -76,7 +76,7 @@ MonoBehaviour:
       soundGain: 1.05
       soundPitch: 1.1
       soundCutoff: 12000
-      scuff: 0.15
+      scuff: 0.3
     footRadius: 0.16
     avoidChance: 0.75
     alwaysAvoidSize: 0.28
@@ -134,17 +134,17 @@ MonoBehaviour:
     blinkMedian: 6
     blinkSpread: 0.6
     doubleBlink: 0.04
-    closeTime: 0.08
-    holdTime: 0.03
-    openTime: 0.18
+    closeTime: 0.2
+    holdTime: 0.1
+    openTime: 0.45
     blinkDepth: 0.9
     focusBlinkRate: 0.5
     stumbleBlink: 0.8
     gazeShiftBlink: 0.3
     squintUpper: 0.45
     squintLower: 0.4
-    squintRise: 0.35
-    squintFall: 1.5
+    squintRise: 0.8
+    squintFall: 3
     squintFlutter: 0.06
     squintGlareRelief: 0.55
     sunPower: 6
@@ -156,16 +156,16 @@ MonoBehaviour:
   eyes:
     driftYaw: 1.5
     driftPitch: 0.8
-    driftLowestHz: 0.04
+    driftLowestHz: 0.025
     dwellSpeed: 0.2
     moveMedian: 3
     dwellMedian: 1
     dwellSpread: 0.7
     shiftMedian: 5
     shiftSpread: 0.7
-    centerHz: 0.5
+    centerHz: 0.3
     centerDamping: 0.95
-    centerMaxSpeed: 30
+    centerMaxSpeed: 14
     maxYaw: 8
     maxDown: 25
     maxUp: 5

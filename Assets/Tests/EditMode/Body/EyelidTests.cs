@@ -46,7 +46,7 @@ namespace Hodba.Tests
             TestContext.WriteLine($"морганий {starts.Count}, медиана паузы {median:0.00} с, самая долгая {gaps.Last():0.0} с, глубже всего {deepest:0.00}");
             Assert.That(median, Is.InRange(3.0, 10.0));
             Assert.That(gaps.Last(), Is.GreaterThan(median * 3), "изредка долго не моргает");
-            Assert.That(gaps.Count(g => g < 0.6), Is.GreaterThan(0), "бывают двойные");
+            Assert.That(gaps.Count(g => g < 1.2), Is.GreaterThan(0), "бывают двойные");
             Assert.That(deepest, Is.LessThan(0.97f), "обычное моргание — не полная тьма");
             Assert.That(deepest, Is.GreaterThan(0.8f));
         }

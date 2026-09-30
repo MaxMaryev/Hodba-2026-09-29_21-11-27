@@ -60,7 +60,7 @@ namespace Hodba.Tests
             var sim = Sim(0f);
             sim.Apply(Intent.Walk());
             Run(sim, new Flat(), 10f);
-            Assert.That(sim.Position.Z, Is.GreaterThan(10_000));
+            Assert.That(sim.Position.Z, Is.GreaterThan(7_000));
             Assert.That(System.Math.Abs(sim.Position.X), Is.LessThan(10));
         }
 
@@ -135,7 +135,7 @@ namespace Hodba.Tests
             Run(sim, new Flat(), 60f);
             long expected = (long)(sim.Distance / WalkParams.Default.StepLength);
             Assert.AreEqual(expected, sim.Steps);
-            Assert.That(sim.Steps, Is.GreaterThan(100));
+            Assert.That(sim.Steps, Is.GreaterThan(60));
         }
     }
 }

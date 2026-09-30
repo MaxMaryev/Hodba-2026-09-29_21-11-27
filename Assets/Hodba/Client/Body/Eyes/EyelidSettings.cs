@@ -66,9 +66,9 @@ namespace Hodba.Client.Body
             blinkMedian = 6f,
             blinkSpread = 0.6f,
             doubleBlink = 0.04f,
-            closeTime = 0.08f,
-            holdTime = 0.03f,
-            openTime = 0.18f,
+            closeTime = 0.2f,
+            holdTime = 0.1f,
+            openTime = 0.45f,
             blinkDepth = 0.9f,
             focusBlinkRate = 0.5f,
             stumbleBlink = 0.8f,
@@ -76,8 +76,8 @@ namespace Hodba.Client.Body
 
             squintUpper = 0.45f,
             squintLower = 0.4f,
-            squintRise = 0.35f,
-            squintFall = 1.5f,
+            squintRise = 0.8f,
+            squintFall = 3f,
             squintFlutter = 0.06f,
             squintGlareRelief = 0.55f,
 
