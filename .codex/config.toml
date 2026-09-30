@@ -1,0 +1,7 @@
+[mcp_servers.unity-mcp]
+command = 'C:\Users\Admin\.unity\relay\relay_win.exe'
+args = [
+    "--mcp",
+    "--project-path",
+    'D:\Max\Unity\Projects\Hodba',
+]
