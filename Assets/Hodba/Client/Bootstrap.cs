@@ -39,6 +39,7 @@ namespace Hodba.Client
         BreathSynth _breathAudio;
         GearSynth _gearAudio;
         BodyDebugOverlay _debug;
+        EyeRender _eyeRender;
         float _saveTimer;
 
         bool Proving => config.worldKind == WorldKind.ProvingGround;
@@ -89,6 +90,7 @@ namespace Hodba.Client
             _clock = new SkyClock();
             _sky = new SkyController(sun, config.skyMaterial);
             _exposure = new ExposureController(volume);
+            _eyeRender = new EyeRender(camera, config.eyeShader != null ? config.eyeShader : Shader.Find("Hidden/Hodba/Eye"));
             _wind = new Wind();
             _dust = new Dust(config, _origin);
 
@@ -151,7 +153,8 @@ namespace Hodba.Client
 
             _clock.Tick(config);
             _sky.Tick(_clock, config);
-            _exposure.Tick(_rig.Camera, _clock, config, dt);
+            _exposure.Tick(_rig.Camera, _clock, config, dt, _walker.Eyelids.Squint);
+            _eyeRender.Apply(_walker.Eyelids, _exposure.GlareStimulus);
 
             float ground = _world.SampleHeightMm(_sim.Position) / 1000f;
             _dust.Tick(_rig.Camera, _wind, config, _origin.ToLocal(_sim.Position, ground).y);
@@ -196,7 +199,11 @@ namespace Hodba.Client
 
         void OnApplicationQuit() => Save();
 
-        void OnDestroy() => _input?.Dispose();
+        void OnDestroy()
+        {
+            _input?.Dispose();
+            _eyeRender?.Dispose();
+        }
 
         Camera CreateCamera()
         {

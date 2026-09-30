@@ -86,6 +86,8 @@ namespace Hodba.Editor
                 config.driftMaterial = drift;
                 if (config.stoneMaterial == null) config.stoneMaterial = stone;
                 config.volumeProfile = volume;
+                // Шейдер век грузится кодом — ссылка из конфига не даёт сборке его выбросить.
+                config.eyeShader = Shader.Find("Hidden/Hodba/Eye");
                 AssignAudio(config);
                 EditorUtility.DisplayProgressBar("Hodba", "Модели и текстуры", 0.85f);
                 FieldArt.Assign(config, stone);

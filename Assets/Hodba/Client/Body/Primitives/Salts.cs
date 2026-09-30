@@ -14,5 +14,8 @@ namespace Hodba.Client.Body
         public const uint BreathDrift = 0x51_21;
         public const uint Posture = 0x51_30;
         public const uint Exertion = 0x51_40;
+        public const uint Eyelids = 0x51_50;
+        public const uint EyeWander = 0x51_60;
+        public const uint Attention = 0x51_70;
     }
 }

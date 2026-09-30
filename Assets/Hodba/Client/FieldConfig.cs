@@ -37,6 +37,8 @@ namespace Hodba.Client
         public ExertionSettings exertion = ExertionSettings.Default;
         [Header("Тело: как слои складываются в голову")]
         public PoseSettings pose = PoseSettings.Default;
+        [Header("Глаза: веки, моргание, прищур")]
+        public EyelidSettings eyelids = EyelidSettings.Default;
 
         [Header("Взгляд")]
         [Tooltip("Градусов на ширину экрана при ведении пальцем.")]
@@ -92,8 +94,7 @@ namespace Hodba.Client
         [Header("Ослепление и цвет")]
         public float glareExposure = 1.1f;
         public float glareBloom = 2.2f;
-        public float glarePower = 6f;
-        [Tooltip("Как быстро слепит, с.")]
+        [Tooltip("Как быстро слепит, с. Острота конуса ослепления — в «Глаза: веки» (sunPower).")]
         public float glareRise = 1.2f;
         [Tooltip("Как долго отпускает, с.")]
         public float glareFall = 5f;
@@ -177,6 +178,8 @@ namespace Hodba.Client
         public Material dustMaterial;
         public Material driftMaterial;
         public VolumeProfile volumeProfile;
+        [Tooltip("Hidden/Hodba/Eye — веки поверх картинки.")]
+        public Shader eyeShader;
 
         [Header("Ассеты со стороны (Docs/Assets/field-assets.md)")]
         [Tooltip("Т1 albedo")] public Texture2D ashAlbedo;

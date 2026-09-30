@@ -533,6 +533,7 @@ MonoBehaviour:
   dustMaterial: {fileID: 2100000, guid: bc8d2c82cdd36124081e6ca22dae03b9, type: 2}
   driftMaterial: {fileID: 2100000, guid: 84942297a49b02c4ca81cebba00fc13b, type: 2}
   volumeProfile: {fileID: 11400000, guid: b3a8a700ffce60f41a0798caf0d12756, type: 2}
+  eyeShader: {fileID: 4800000, guid: 82b3f5c37320e96418dbf3ec27597f41, type: 3}
   ashAlbedo: {fileID: 2800000, guid: 22a0a36c826870c45a69a3f50490417a, type: 3}
   ashNormal: {fileID: 2800000, guid: 5575401ef63e2f340bd0276f86b9cabe, type: 3}
   rippleNormal: {fileID: 2800000, guid: 01ad4d0fad9f63048b3f9224131e2db5, type: 3}

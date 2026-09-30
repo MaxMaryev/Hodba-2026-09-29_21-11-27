@@ -20,12 +20,17 @@ namespace Hodba.Client
         readonly PostureLayer _posture;
         readonly HeadSpring _head = new HeadSpring();
         readonly MotionBudget _budget = new MotionBudget();
+        readonly Eyelids _eyelids;
+        readonly SunIrritant _sun = new SunIrritant();
         double _time;
 
         /// <summary>Итоговое отклонение головы в этом кадре.</summary>
         public PoseDelta Pose { get; private set; }
         public GaitState Gait => _gait.State;
         public ExertionState Exertion => _exertion.State;
+        public EyelidState Eyelids => _eyelids.State;
+        /// <summary>0..1 — насколько солнце бьёт в глаз (до век).</summary>
+        public float SunStimulus => _sun.Stimulus;
         /// <summary>0..1 — насколько приглушён фон ради события.</summary>
         public float Duck => _budget.Duck;
         public double Time => _time;
@@ -44,8 +49,13 @@ namespace Hodba.Client
             _budget.Add(_breath);
             _budget.Add(_posture);
 
+            _eyelids = new Eyelids(seed);
+            _eyelids.Add(_sun);
+            _eyelids.Add(new WindIrritant());
+
             Events.Step += e => _exertion.OnStep(e, _config.exertion);
             Events.Body += e => _exertion.OnBodyEvent(e, _config.exertion);
+            Events.Body += e => _eyelids.OnBodyEvent(e, _config.eyelids);
         }
 
         public BodyContext Context(float dt, WalkSim sim, IWorldQuery world, Wind wind, SkyClock clock, GazeController gaze, bool lookInput) =>
@@ -67,6 +77,8 @@ namespace Hodba.Client
             var mixed = _budget.Mix(ctx.Dt, c.pose);
             var head = _head.Filter(mixed, ctx.Dt, c.pose);
             Pose = _budget.Limit(head, ctx.Dt, c.pose);
+
+            _eyelids.Tick(ctx, ctx.HeadForward, c.eyelids);
         }
 
         /// <summary>После телепорта: шаги с нуля, без шквала следов.</summary>

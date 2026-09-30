@@ -36,7 +36,7 @@ namespace Hodba.Client
             Directory.CreateDirectory(dir);
             Path = System.IO.Path.Combine(dir, $"body-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
             _writer = new StreamWriter(Path);
-            _writer.WriteLine("time,dt,up_mm,side_mm,fwd_mm,pitch,yaw,roll,phase,step,speed,looseness,slope,load,caution,lungs,event,duck");
+            _writer.WriteLine("time,dt,up_mm,side_mm,fwd_mm,pitch,yaw,roll,phase,step,speed,looseness,slope,load,caution,lungs,event,duck,openness,squint");
             _started = now;
             Debug.Log($"[Hodba] Запись тела: {Path}");
         }
@@ -73,7 +73,8 @@ namespace Hodba.Client
                 g.Phase.ToString("0.000", c), _stepFlag.ToString(c),
                 sim.Speed.ToString("0.000", c), sim.Looseness.ToString("0.000", c), sim.Slope.ToString("0.000", c),
                 x.Load.ToString("0.000", c), x.Caution.ToString("0.000", c), x.Lungs.ToString("0.000", c),
-                g.EventStrength.ToString("0.000", c), body.Duck.ToString("0.000", c)));
+                g.EventStrength.ToString("0.000", c), body.Duck.ToString("0.000", c),
+                body.Eyelids.Openness.ToString("0.000", c), body.Eyelids.Squint.ToString("0.000", c)));
             _stepFlag = 0;
         }
 

@@ -66,6 +66,17 @@ namespace Hodba.Client.Body
         public float SpeedNorm =>
             Sim.Params.BaseSpeed > 0f ? Mathf.Clamp01(Sim.Speed / Sim.Params.BaseSpeed) : 0f;
 
+        /// <summary>Куда смотрит голова, мировые оси.</summary>
+        public Vector3 HeadForward => Direction(HeadYaw, HeadPitch);
+
+        /// <summary>Направление по углам: рыск от севера по часовой, тангаж плюс — вниз.</summary>
+        public static Vector3 Direction(float yaw, float pitch)
+        {
+            float y = yaw * Mathf.Deg2Rad, p = pitch * Mathf.Deg2Rad;
+            float c = Mathf.Cos(p);
+            return new Vector3(Mathf.Sin(y) * c, -Mathf.Sin(p), Mathf.Cos(y) * c);
+        }
+
         /// <summary>Вперёд по курсу, мировые оси.</summary>
         public Vector3 Forward
         {

@@ -54,6 +54,8 @@ namespace Hodba.Client
                 Make("одышка", new Color(1f, 0.4f, 0.8f), 0f, 1f),
                 Make("осторожность", new Color(0.5f, 0.6f, 1f), 0f, 1f),
                 Make("событие", new Color(1f, 0.3f, 0.2f), 0f, 1f),
+                Make("веки открыты", new Color(0.95f, 0.75f, 0.6f), 0f, 1f),
+                Make("прищур", new Color(1f, 1f, 0.5f), 0f, 1f),
             };
             _steps = new bool[Samples];
         }
@@ -84,6 +86,8 @@ namespace Hodba.Client
             Put(5, x.Load);
             Put(6, x.Caution);
             Put(7, _body.Gait.EventStrength);
+            Put(8, _body.Eyelids.Openness);
+            Put(9, _body.Eyelids.Squint);
             _recorder.Write(_body.Time, dt, _body, _sim);
         }
 
