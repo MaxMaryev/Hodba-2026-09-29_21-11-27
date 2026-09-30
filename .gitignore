@@ -115,3 +115,6 @@ InitTestScene*.unity*
 
 # Local Cursor MCP config (machine-specific absolute paths)
 .cursor/mcp.json
+
+# Local Superpowers visual brainstorming sessions
+.superpowers/
