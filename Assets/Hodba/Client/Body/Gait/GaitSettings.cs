@@ -43,6 +43,8 @@ namespace Hodba.Client.Body
         public float impactNod;
         [Tooltip("Наклон корпуса на единицу уклона, °. Вверх — вперёд, вниз — назад.")]
         public float slopeLean;
+        [Tooltip("Куда смотрят глаза на склоне, ° на единицу уклона: на спуске — вниз по склону, на подъёме — вверх.")]
+        public float slopeGaze;
         [Tooltip("Наклон от разгона и торможения, ° на м/с².")]
         public float accelLean;
         [Tooltip("Боковое смещение стопы от оси, м.")]
@@ -123,6 +125,7 @@ namespace Hodba.Client.Body
             impactKick = 0.04f,
             impactNod = 8f,
             slopeLean = 12f,
+            slopeGaze = 6f,
             accelLean = 1.2f,
             footOffset = 0.12f,
             footReach = 0.35f,

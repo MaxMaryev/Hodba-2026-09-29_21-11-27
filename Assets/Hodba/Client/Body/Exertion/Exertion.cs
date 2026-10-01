@@ -82,7 +82,7 @@ namespace Hodba.Client.Body
             _load = Approach(_load, _effort, s.loadRise, s.loadFall, dt);
 
             float cautionTarget = Mathf.Clamp01(gait.GroundCaution
-                                                + Mathf.Max(0f, -sim.Slope) * s.downhillCaution
+                                                + Mathf.Max(0f, -sim.Slope - s.downhillFrom) * s.downhillCaution
                                                 + gait.AheadChange * s.aheadCaution);
             _caution = Approach(_caution, cautionTarget, s.cautionRise, s.cautionFall, dt);
 

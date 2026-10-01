@@ -52,6 +52,8 @@ namespace Hodba.Client.Body
         public float cautionFall;
         [Tooltip("Сколько осторожности даёт спуск, на единицу уклона.")]
         public float downhillCaution;
+        [Tooltip("С какого спуска (уклон) тело начинает осторожничать: пологий спуск идут легко.")]
+        public float downhillFrom;
         [Tooltip("Сколько даёт перемена земли впереди.")]
         public float aheadCaution;
         [Tooltip("Сколько добавляет спотыкание.")]
@@ -80,7 +82,8 @@ namespace Hodba.Client.Body
 
             cautionRise = 2.5f,
             cautionFall = 40f,
-            downhillCaution = 3f,
+            downhillCaution = 1.5f,
+            downhillFrom = 0.12f,
             aheadCaution = 0.5f,
             stumbleCaution = 0.6f,
         };

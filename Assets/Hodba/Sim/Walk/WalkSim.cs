@@ -21,6 +21,11 @@ namespace Hodba.Sim.Walk
         public float LoosenessDrag;
         /// <summary>Сколько скорости отнимают бугры и наносы в полную силу, доля. Стартовое значение.</summary>
         public float RoughnessDrag;
+        /// <summary>
+        /// Насколько спуск мягче, чем по Тоблеру: 1 — как у Тоблера (крутой спуск почти как подъём), 0 — спуск не тормозит.
+        /// Стартовое значение, подбирается.
+        /// </summary>
+        public float DownhillEase;
 
         public static WalkParams Default => new WalkParams
         {
@@ -31,6 +36,7 @@ namespace Hodba.Sim.Walk
             StepLength = 0.6f,
             LoosenessDrag = 0.2f,
             RoughnessDrag = 0.1f,
+            DownhillEase = 0.45f,
         };
     }
 
@@ -110,7 +116,7 @@ namespace Hodba.Sim.Walk
             Roughness = surface.Roughness / 65536f;
 
             float target = WantsWalk
-                ? Params.BaseSpeed * ToblerFactor(Slope) * LoosenessFactor(Looseness, Params.LoosenessDrag)
+                ? Params.BaseSpeed * SlopeFactor(Slope, Params.DownhillEase) * LoosenessFactor(Looseness, Params.LoosenessDrag)
                   * LoosenessFactor(Roughness, Params.RoughnessDrag) * AttentionFactor
                 : 0f;
             float rate = target > Speed
@@ -166,6 +172,20 @@ namespace Hodba.Sim.Walk
         {
             double flat = Math.Exp(-3.5 * 0.05);
             return (float)(Math.Exp(-3.5 * Math.Abs(slope + 0.05)) / flat);
+        }
+
+        /// <summary>
+        /// Скорость от уклона: в гору — по Тоблеру, под гору — мягче. Тоблер считал быстрых ходоков по горным
+        /// тропам, где на крутом спуске тормозят почти как на подъёме; усталый путник по пеплу и песку
+        /// под гору идёт легче — ноги сами несут, тормозит лишь крутизна.
+        /// </summary>
+        public static float SlopeFactor(float slope, float downhillEase)
+        {
+            const float peak = -0.05f; // у Тоблера самый быстрый ход — на лёгком спуске
+            if (slope >= peak) return ToblerFactor(slope);
+            double flat = Math.Exp(-3.5 * 0.05);
+            float ease = Clamp01(downhillEase);
+            return (float)(Math.Exp(-3.5 * ease * (peak - slope)) / flat);
         }
 
         /// <summary>В рыхлом часть усилия уходит в землю: нога проседает, отталкивание вязнет.</summary>

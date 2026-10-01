@@ -23,6 +23,7 @@ MonoBehaviour:
     StepLength: 0.6
     LoosenessDrag: 0.2
     RoughnessDrag: 0.1
+    DownhillEase: 0.45
   eyeHeight: 1.65
   fov: 60
   gazeStabilization: 0.7
@@ -42,6 +43,7 @@ MonoBehaviour:
     impactKick: 0.04
     impactNod: 8
     slopeLean: 12
+    slopeGaze: 6
     accelLean: 1.2
     footOffset: 0.12
     footReach: 0.35
@@ -119,7 +121,8 @@ MonoBehaviour:
     phaseNudge: 0.15
     cautionRise: 2.5
     cautionFall: 40
-    downhillCaution: 3
+    downhillCaution: 1.5
+    downhillFrom: 0.12
     aheadCaution: 0.5
     stumbleCaution: 0.6
   pose:

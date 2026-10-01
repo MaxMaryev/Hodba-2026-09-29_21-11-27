@@ -106,6 +106,23 @@ namespace Hodba.Tests
             Assert.That(sim.Speed, Is.LessThan(WalkParams.Default.BaseSpeed * 0.7f));
         }
 
+        /// <summary>Под гору ноги сами несут: спуск не тяжелее подъёма, пологий — почти не тормозит.</summary>
+        [Test]
+        public void DownhillIsEasierThanUphill()
+        {
+            var down = Sim(180f); // склон в 20% поднимается на север — идём на юг, вниз
+            down.Apply(Intent.Walk());
+            Run(down, new Slope(), 5f);
+            var up = Sim(0f);
+            up.Apply(Intent.Walk());
+            Run(up, new Slope(), 5f);
+            Assert.That(down.Slope, Is.LessThan(-0.15f), "правда спуск");
+            Assert.That(down.Speed, Is.GreaterThan(up.Speed * 1.5f));
+            Assert.That(down.Speed, Is.GreaterThan(WalkParams.Default.BaseSpeed * 0.85f));
+            Assert.That(WalkSim.SlopeFactor(-0.6f, WalkParams.Default.DownhillEase), Is.InRange(0.35f, 0.7f),
+                "крутой подветренный склон бархана всё же тормозит");
+        }
+
         [Test]
         public void LooseAshIsSlower()
         {

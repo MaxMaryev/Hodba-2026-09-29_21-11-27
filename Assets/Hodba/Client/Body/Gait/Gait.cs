@@ -56,6 +56,8 @@ namespace Hodba.Client.Body
         readonly Spring _impactUp = new Spring(), _impactPitch = new Spring();
         readonly Spring _eventUp = new Spring(), _eventPitch = new Spring(), _eventRoll = new Spring();
         readonly Spring _lean = new Spring(), _sink = new Spring();
+        /// <summary>Голова отдельно от корпуса: корпус на спуске откидывается назад, а взгляд идёт вниз по склону.</summary>
+        readonly Spring _headPitch = new Spring();
         readonly Spring _support = new Spring(), _footRoll = new Spring(), _footPitch = new Spring();
 
         Shape _prev, _cur;
@@ -191,6 +193,9 @@ namespace Hodba.Client.Body
 
             float lean = sim.Slope * s.slopeLean + Mathf.Clamp(accel, -3f, 3f) * s.accelLean;
             _lean.Step(lean, dt, s.leanHz, 0.7f);
+            // Камера — это глаза: на спуске смотрят вниз по склону, на подъёме — вверх; корпус (тень) клонится сам по себе.
+            float head = -sim.Slope * s.slopeGaze + Mathf.Clamp(accel, -3f, 3f) * s.accelLean;
+            _headPitch.Step(head, dt, s.leanHz, 0.7f);
 
             // Неровная земля: тело стоит на опорной стопе и переходит на новую за долю шага. Высота опоры —
             // стопа, продолженная по общему уклону до тела: склон тело проходит плавно, а не ступеньками по шагу;
@@ -219,7 +224,7 @@ namespace Hodba.Client.Body
                 up + _sink.Value + _impactUp.Value + _eventUp.Value,
                 side,
                 surge,
-                pitch + _impactPitch.Value + _eventPitch.Value + _lean.Value + _footPitch.Value,
+                pitch + _impactPitch.Value + _eventPitch.Value + _headPitch.Value + _footPitch.Value,
                 0f,
                 roll + _eventRoll.Value + _footRoll.Value);
         }
@@ -385,6 +390,7 @@ namespace Hodba.Client.Body
             var feel = SurfaceFeel.Find(s.surfaces, here.Kind);
             _cur = Next(ctx, s, ex, feel, here.Roughness / 65536f, ahead, stepLength);
             _lean.Kick(s.startLean);
+            _headPitch.Kick(s.startLean);
             Bump(0.3f, BodyEventKind.Start);
         }
 
@@ -393,6 +399,7 @@ namespace Hodba.Client.Body
             // Приставил ногу, если застыл посреди шага.
             if (Phase(ctx.Sim.Distance) > 0.25f) EmitSoftStep(ctx, s, 0.35f);
             _lean.Kick(s.stopSettle);
+            _headPitch.Kick(s.stopSettle);
             _gearTimer = s.gearLag;
             Bump(0.5f, BodyEventKind.Settled);
         }
