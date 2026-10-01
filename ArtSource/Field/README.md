@@ -16,7 +16,7 @@ Generators overwrite only this asset pack's outputs. Review changes before rebui
 ## Delivery
 
 - `Assets/Art/Field/Models`: 8 small rocks (224 triangles each), 3 boulders (816 each), traveler (7976).
-- `Assets/Art/Field/Textures`: separate PBR maps, 1024 rock/character atlases, 2048 ground sources, 256×512 footprints.
+- `Assets/Art/Field/Textures`: separate PBR maps, 1024 rock/character atlases, 2048 T1/T2/T3 ground sources, 1024 T5 close-detail sources, 256×512 footprints.
 - `Assets/Art/Field/Audio`: 30 mono footsteps, calm and gust wind loops (90 s stereo), ash-hiss loop (40 s mono); 48 kHz 16-bit WAV.
 - `Assets/Art/Field/Prefabs`, `Materials`, `Scenes`: built by Unity editor command **Hodba → Field → Build and Validate**.
 - `ArtSource/Field`: editable `.blend` authoring files, generators, validation, previews.
@@ -26,7 +26,7 @@ The boulder ash apron faces Unity **+Z**; rotate the entire prefab so this face 
 
 Rocks use separate 1024 atlases for M1 and M2, with 6% inset per cell and extruded UV gutters. Pores use normal maps; AO is separate. Atlas features are not physically identical in size on all rock variants. M3 has a four-band textile/leather atlas and a 21-bone Humanoid skeleton.
 
-Texture height ranges, tiling, and normal conventions: see [TEXTURES.md](TEXTURES.md). Normal maps use +Y; packed metallic/smoothness has R=0, A=1−roughness. Preserve the alpha channel on packed maps. Ground textures use 1024 mobile overrides; original files remain 2048.
+Texture height ranges, tiling, and normal conventions: see [TEXTURES.md](TEXTURES.md). Normal maps use +Y. Current ground generation outputs albedo, 16-bit height, and normal; legacy packed maps are preserved but not regenerated. T1/T2/T3 use 1024 mobile overrides while their source files remain 2048; T5 is authored at 1024.
 
 ## Audio
 
