@@ -32,6 +32,22 @@ def decode(path):
     a=np.frombuffer(pixels,dtype='>u2' if depth==16 else np.uint8).reshape(h,w,channels)
     return a.astype(np.float32)/((1<<depth)-1)
 
+def binomial_blur(core):
+    vertical=(np.roll(core,1,0)+2*core+np.roll(core,-1,0))*.25
+    return (np.roll(vertical,1,1)+2*vertical+np.roll(vertical,-1,1))*.25
+
+def one_pixel_variance(core):
+    core=np.asarray(core,dtype=np.float64)
+    return float(np.var(core-binomial_blur(core))/np.var(core))
+
+def gradient_isotropy(height):
+    core=height[:-1,:-1,0]
+    dx=(np.roll(core,-1,1)-np.roll(core,1,1))*.5
+    dy=(np.roll(core,-1,0)-np.roll(core,1,0))*.5
+    angle=np.arctan2(dy,dx)
+    bins=np.histogram(angle,bins=8,range=(-np.pi,np.pi))[0]
+    return float(bins.max()/bins.min())
+
 def main():
     report = ROOT / 'ArtSource/Field/texture-validation.json'
     assert report.exists(), 'Texture generation and validation report missing'
@@ -48,9 +64,16 @@ def main():
         result = data['materials'][prefix]
         diagnostic = decode(ROOT / 'ArtSource/Field/Previews' / f'{prefix}_Diagnostic_3x3_Frontal_Grazing.png')
         assert diagnostic.shape == (816,1536,3)
+        grazing = decode(ROOT / 'ArtSource/Field/Previews' / f'{prefix}_Grazing_3x3.png')
+        assert grazing.shape == (768,768,3)
         assert result['seam_max'] == 0, result
         assert result['normal_length_error'] < 1e-5, result
         decoded={suffix:decode(OUT/f'{prefix}_{suffix}.png') for suffix in ['Albedo','Normal','Height']}
+        crop_start=(resolution[0]-320)//2
+        for suffix in ('Albedo','Normal'):
+            crop=decode(ROOT/'ArtSource/Field/Previews'/f'{prefix}_{suffix}_Crop320_1to1.png')
+            assert crop.shape==(320,320,3)
+            assert np.array_equal(crop,decoded[suffix][crop_start:crop_start+320,crop_start:crop_start+320])
         for suffix,a in decoded.items():
             assert np.array_equal(a[0],a[-1]), (prefix,suffix,'V seam')
             assert np.array_equal(a[:,0],a[:,-1]), (prefix,suffix,'U seam')
@@ -69,6 +92,18 @@ def main():
             ratio = float(luminance.std() / luminance.mean())
             assert .06 <= ratio <= .10, (prefix, ratio)
             assert result['block_mean_max_deviation'] <= .03, result
+            hcore=decoded['Height'][:-1,:-1,0]
+            lcore=luminance[:-1,:-1]
+            hratio=one_pixel_variance(hcore)
+            lratio=one_pixel_variance(lcore)
+            assert abs(result['height_one_pixel_variance']-hratio)<.0002, (prefix,result,hratio)
+            assert abs(result['albedo_one_pixel_variance']-lratio)<.0002, (prefix,result,lratio)
+            assert hratio<=.10, (prefix,hratio)
+            if prefix=='T1_Ash':
+                assert lratio<=.25, (prefix,lratio)
+                isotropy=gradient_isotropy(decoded['Height'])
+                assert abs(result['gradient_isotropy_max_min']-isotropy)<.002, (prefix,isotropy)
+                assert isotropy<=1.15, (prefix,isotropy)
         if prefix=='T2_Ripples':
             power=np.abs(np.fft.rfft(decoded['Height'][...,0].mean(axis=0)))
             frequency=int(np.argmax(power[10:100]))+10
@@ -76,6 +111,15 @@ def main():
             assert .08<=pitch<=.12, pitch
             assert result['ridge_height_mm'][0] >= 5
             assert result['ridge_height_mm'][1] <= 10
+            assert .5<=result['meander_wavelength_m']<=1.0, result
+            assert .01<=result['meander_amplitude_m']<=.03, result
+            assert 5<=result['branch_count_per_m2']<=25, result
+            assert .20<=result['crest_height_modulation_fraction']<=.40, result
+            from textures import ripple_metrics
+            markers=decode(ROOT/'ArtSource/Field/Previews/T2_Ripples_BranchMarkers.png')[...,0]
+            observed=ripple_metrics(decoded['Height'][...,0],int(np.count_nonzero(markers[:-1,:-1])))
+            for key in ('meander_wavelength_m','meander_amplitude_m','branch_count_per_m2','crest_height_modulation_fraction'):
+                assert abs(observed[key]-result[key])<.002, (key,observed[key],result[key])
         if prefix == 'T3_Crust':
             assert 30 <= result['site_count'] <= 60
             assert result['site_min_spacing_m'] >= .16
@@ -83,6 +127,15 @@ def main():
             assert result['crack_width_mm'][1] <= 6
             assert result['crack_depth_mm'][0] >= 3
             assert result['crack_depth_mm'][1] <= 8
+            assert result['longest_axis_crack_mm'] <= 50, result
+            assert result['fft_grid_peak_ratio'] <= 2.0, result
+            assert .35 <= result['plate_tilt_peak_mm'] <= .55, result
+            assert 2 <= result['plate_tone_range_pct'] <= 4, result
+            from textures import longest_axis_crack, fft_grid_peak_ratio
+            cracks=decode(ROOT/'ArtSource/Field/Previews/T3_Crust_CrackMask.png')[...,0]
+            plate_noise=decode(ROOT/'ArtSource/Field/Previews/T3_Crust_PlateNoise.png')[...,0]
+            assert abs(longest_axis_crack(cracks,4000/2047)-result['longest_axis_crack_mm'])<2
+            assert abs(fft_grid_peak_ratio(plate_noise)-result['fft_grid_peak_ratio'])<.02
     for side in ['Left', 'Right']:
         for suffix in ['Albedo', 'Height', 'Normal']:
             p = OUT / f'T4_Footprint{side}_{suffix}.png'
@@ -97,7 +150,7 @@ def main():
     assert np.max(np.abs(right-expected))<1/255+.00001
     for suffix in ['Albedo','Height']:
         assert np.array_equal(decode(OUT/f'T4_FootprintLeft_{suffix}.png')[:,::-1],decode(OUT/f'T4_FootprintRight_{suffix}.png'))
-    print('PASS: T1/T2/T3/T5 dimensions, color statistics, height, seams, normals, ripples, cracks, mirror and depth')
+    print('PASS: T1/T2/T3/T5 dimensions, color statistics, 1px variance, isotropy, height, seams, normals, ripples, cracks, FFT, crops and 3x3')
 
 if __name__ == '__main__':
     main()

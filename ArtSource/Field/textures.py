@@ -34,6 +34,34 @@ def png(path, a, depth=8):
         path.write_bytes(payload)
         temporary.unlink(missing_ok=True)
 
+def decode_png(path):
+    raw=path.read_bytes()
+    w,h,depth,color=struct.unpack('>IIBB',raw[16:26])
+    payload=b''; offset=8
+    while offset<len(raw):
+        length=struct.unpack('>I',raw[offset:offset+4])[0]
+        if raw[offset+4:offset+8]==b'IDAT': payload+=raw[offset+8:offset+8+length]
+        offset+=length+12
+    channels={0:1,2:3,6:4}[color]
+    stride=w*channels*(depth//8)
+    rows=zlib.decompress(payload)
+    pixels=b''.join(rows[i*(stride+1)+1:(i+1)*(stride+1)] for i in range(h))
+    return np.frombuffer(pixels,dtype='>u2' if depth==16 else np.uint8).reshape(h,w,channels).astype(np.float32)/((1<<depth)-1)
+
+def binomial_blur(core):
+    vertical=(np.roll(core,1,0)+2*core+np.roll(core,-1,0))*.25
+    return (np.roll(vertical,1,1)+2*vertical+np.roll(vertical,-1,1))*.25
+
+def one_pixel_variance(core):
+    core=core.astype(np.float64)
+    return float(np.var(core-binomial_blur(core))/np.var(core))
+
+def gradient_isotropy(height):
+    dx=(np.roll(height,-1,1)-np.roll(height,1,1))*.5
+    dy=(np.roll(height,-1,0)-np.roll(height,1,0))*.5
+    bins=np.histogram(np.arctan2(dy,dx),bins=8,range=(-np.pi,np.pi))[0]
+    return float(bins.max()/bins.min())
+
 def noise(n, cells, seed):
     rng = np.random.default_rng(seed)
     grid = rng.uniform(-1,1,(cells,cells)).astype(np.float32)
@@ -75,33 +103,54 @@ def pixel_noise(n, seed):
     core = rng.normal(0, 1, (n-1, n-1)).astype(np.float32)
     return np.pad(core, ((0,1),(0,1)), mode='wrap')
 
+def spectral_noise(n, seed, sigmas):
+    """Isotropic Gaussian-filtered periodic noise without a lattice frequency."""
+    m=n-1
+    rng=np.random.default_rng(seed)
+    spectrum=np.fft.rfft2(rng.standard_normal((m,m),dtype=np.float32))
+    fy=np.fft.fftfreq(m).astype(np.float32)[:,None]
+    fx=np.fft.rfftfreq(m).astype(np.float32)[None,:]
+    radius2=fy*fy+fx*fx
+    fields=[]
+    for sigma in sigmas:
+        filt=np.exp((-2*np.pi*np.pi*sigma*sigma)*radius2)
+        core=np.fft.irfft2(spectrum*filt,s=(m,m)).astype(np.float32)
+        fields.append(standardized(np.pad(core,((0,1),(0,1)),mode='wrap')))
+    return fields
+
 def standardized(a):
     core = a[:-1,:-1]
     return (a-float(core.mean()))/max(float(core.std()),1e-6)
 
 def grain_mask(n, coverage, radius_px, seed):
-    """Evenly spaced jittered grains on a torus, with soft circular footprints."""
+    """Jittered angular grains; sizes follow a small-grain-heavy power law."""
     core_n=n-1
     radius=max(1,int(radius_px))
-    area=np.pi*radius*radius*.72
+    area=np.pi*(.48*radius+.52)**2*.8
     count=max(1,int(coverage*core_n*core_n/area))
     side=int(np.ceil(np.sqrt(count)))
     rng=np.random.default_rng(seed)
     result=np.zeros((core_n,core_n),dtype=np.float32)
-    placed=0
-    for gy in range(side):
-        for gx in range(side):
-            if placed>=count: break
-            cy=int((gy+rng.uniform(.18,.82))*core_n/side)%core_n
-            cx=int((gx+rng.uniform(.18,.82))*core_n/side)%core_n
-            r=max(1,int(round(radius*rng.uniform(.72,1.28))))
-            yy=np.arange(-r,r+1)
-            xx=np.arange(-r,r+1)
-            kernel=np.clip(1-(yy[:,None]**2+xx[None,:]**2)/(r*r+1e-6),0,1)
-            yi=(cy+yy)%core_n
-            xi=(cx+xx)%core_n
-            result[np.ix_(yi,xi)]=np.maximum(result[np.ix_(yi,xi)],kernel)
-            placed+=1
+    for cell in rng.choice(side*side,size=count,replace=False):
+        gy,gx=divmod(int(cell),side)
+        cy=int((gy+rng.uniform(.18,.82))*core_n/side)%core_n
+        cx=int((gx+rng.uniform(.18,.82))*core_n/side)%core_n
+        r=1+(radius-1)*rng.random()**2.3
+        aspect=rng.uniform(1,2.5)
+        theta=rng.uniform(0,2*np.pi)
+        margin=int(np.ceil(r*np.sqrt(aspect)+1))
+        yy=np.arange(-margin,margin+1)
+        xx=np.arange(-margin,margin+1)
+        xr=xx[None,:]*np.cos(theta)+yy[:,None]*np.sin(theta)
+        yr=-xx[None,:]*np.sin(theta)+yy[:,None]*np.cos(theta)
+        angle=np.arctan2(yr,xr)
+        jagged=1+.14*np.sin(3*angle+rng.uniform(0,2*np.pi))+.10*np.sin(5*angle+rng.uniform(0,2*np.pi))
+        distance=np.sqrt((xr/(r*np.sqrt(aspect)))**2+(yr*np.sqrt(aspect)/r)**2)
+        kernel=np.clip((jagged-distance)*r/.5+.5,0,1)
+        if rng.random()<.35: kernel*=.5
+        yi=(cy+yy)%core_n
+        xi=(cx+xx)%core_n
+        result[np.ix_(yi,xi)]=np.maximum(result[np.ix_(yi,xi)],kernel)
     return np.pad(result,((0,1),(0,1)),mode='wrap')
 
 def centered_height(raw):
@@ -144,22 +193,21 @@ def metrics(albedo,height01,normal,tile_m,block_m):
     }
 
 def build_ash(n,tile_m,seed,micro=False):
-    fine_cells=520 if n==2048 else 300
-    fine=.62*standardized(pixel_noise(n,seed))+.38*standardized(noise(n,fine_cells,seed+1))
-    dark_radius=4 if micro else 2
-    light_radius=3 if micro else 2
+    # At 1 mm/px (T1) and 0.5 mm/px (T5), the dominant grains occupy 2–20 mm.
+    short,clumps=spectral_noise(n,seed,[1.8 if micro else 1.5,6 if micro else 4.5])
+    long=spectral_noise(n,seed+1,[11 if micro else 7])[0]
+    dark_radius=8 if micro else 4
+    light_radius=7 if micro else 3
     dark=grain_mask(n,.005 if micro else .0075,dark_radius,seed+2)
     light=grain_mask(n,.007 if micro else .010,light_radius,seed+3)
-    shade=1+.078*fine
-    shade=shade*(1-dark)+(.48+.035*standardized(noise(n,310,seed+4)))*dark
-    shade=shade*(1-light)+(1.20+.025*standardized(noise(n,370,seed+5)))*light
+    micrograin=spectral_noise(n,seed+4,[1.05])[0]
+    shade=1+.024*clumps+.011*long+.066*short+.009*micrograin
+    shade=shade*(1-dark)+(.48+.025*clumps)*dark
+    shade=shade*(1-light)+(1.20+.015*short)*light
     albedo=tone(rgb('B8B1A7'),shade)
-    clump_cells=50 if micro else 150
-    pit=grain_mask(n,.016,2 if micro else 3,seed+20)
-    height_raw=(.62*standardized(pixel_noise(n,seed+21))+
-                .48*standardized(noise(n,fine_cells//2,seed+22))+
-                .36*standardized(noise(n,clump_cells,seed+23))-.42*pit+
-                .12*dark+.16*light)
+    hshort,hclumps,hlong=spectral_noise(n,seed+21,[2.1 if micro else 1.8,5.5 if micro else 4.5,11 if micro else 8])
+    pits=np.clip((-hclumps-.8)*.55,0,1)
+    height_raw=.58*hshort+.38*hclumps+.18*hlong-.25*pits+.06*dark+.07*light
     height=centered_height(height_raw)
     masks={'dark_coverage':float((dark[:-1,:-1]>.15).mean()),
            'light_coverage':float((light[:-1,:-1]>.15).mean())}
@@ -173,6 +221,115 @@ def asymmetric_ripple(phase):
     b=lee*lee*(3-2*lee)
     return np.where(p<.70,a,b).astype(np.float32)
 
+def ridge_tracks(field, cycles=40):
+    core=field[:-1,:-1]
+    m=core.shape[0]
+    period=m/cycles
+    tracks=[]; crest_heights=[]
+    rows=np.arange(m)
+    for k in range(cycles):
+        centre=(k+.70)*period
+        offsets=np.arange(-int(period*.42),int(period*.42)+1)
+        columns=(int(round(centre))+offsets)%m
+        section=core[:,columns]
+        chosen=np.argmax(section,axis=1)
+        tracks.append(centre+offsets[chosen])
+        crest_heights.append(section[rows,chosen]-section.min(axis=1))
+    return np.asarray(tracks),np.asarray(crest_heights)
+
+def ripple_metrics(height01,branch_count):
+    tracks,crests=ridge_tracks(height01)
+    shift=np.mean(tracks-tracks.mean(axis=1,keepdims=True),axis=0)
+    spectrum=np.abs(np.fft.rfft(shift))
+    frequency=int(np.argmax(spectrum[3:10]))+3
+    amplitude=2*float(spectrum[frequency])/len(shift)*(4/len(shift))
+    crest=crests*12
+    valid=crest[crest>2.5]
+    modulation=float((np.percentile(valid,90)-np.percentile(valid,10))/(2*np.mean(valid)))
+    return {'meander_wavelength_m':4/frequency,'meander_amplitude_m':amplitude,
+            'branch_count_per_m2':branch_count/16,'crest_height_modulation_fraction':modulation,
+            'ridge_height_mm':[float(np.percentile(valid,10)),float(np.percentile(valid,90))]}
+
+def ripple_defects(shape,seed):
+    core=shape[:-1,:-1].copy()
+    m=core.shape[0]
+    tracks,_=ridge_tracks(shape)
+    rng=np.random.default_rng(seed)
+    branch=np.zeros_like(core)
+    markers=np.zeros_like(core,dtype=np.uint8)
+    for k in range(40):
+        for event in range(6):
+            y0=int((event+rng.uniform(.15,.85))*m/6)%m
+            length=int(rng.uniform(.32,.52)*m/4)
+            side=rng.choice([-1,1])
+            extent=(.035+rng.uniform(-.003,.003))*m/4
+            for j in range(length):
+                y=(y0+j)%m
+                t=j/length
+                offset=side*int(round(extent*min(1,t/.37)))
+                x=int(round(tracks[k,y]+offset))%m
+                fade=min(1,t/.10,(1-t)/.17)
+                for dx in range(-3,4):
+                    value=fade*np.exp(-.5*(dx/1.65)**2)
+                    column=(x+dx)%m
+                    branch[y,column]=max(branch[y,column],value)
+            markers[y0,int(round(tracks[k,y0]))%m]=255
+        for event in range(2):
+            y0=int((event+rng.uniform(.15,.85))*m/2)%m
+            length=int(rng.uniform(.08,.15)*m/4)
+            for j in range(length):
+                y=(y0+j)%m
+                x=int(round(tracks[k,y]))%m
+                fade=.18+.82*abs(2*j/length-1)
+                for dx in range(-4,5):
+                    col=(x+dx)%m
+                    core[y,col]*=fade
+    core=np.maximum(core,branch)
+    return np.pad(core,((0,1),(0,1)),mode='wrap'),np.pad(markers,((0,1),(0,1)),mode='wrap')
+
+def longest_true_run(rows):
+    longest=0
+    for row in rows:
+        gaps=np.flatnonzero(~row)
+        if len(gaps)>1:
+            longest=max(longest,int(np.max(np.diff(gaps)-1)))
+    return longest
+
+def longest_axis_crack(crack_mask,mm_per_pixel):
+    """Scan U/V ±5° while requiring the local crack tangent to agree."""
+    core=crack_mask[:-1,:-1]
+    gx=(np.roll(core,-1,1)-np.roll(core,1,1))*.5
+    gy=(np.roll(core,-1,0)-np.roll(core,1,0))*.5
+    jxx=binomial_blur(gx*gx)
+    jxy=binomial_blur(gx*gy)
+    jyy=binomial_blur(gy*gy)
+    gradient_angle=.5*np.arctan2(2*jxy,jxx-jyy)
+    tangent=gradient_angle+np.pi/2
+    coherence=np.sqrt((jxx-jyy)**2+4*jxy*jxy)/(jxx+jyy+1e-8)
+    binary=(core>.56)&(coherence>.55)
+    m=binary.shape[0]
+    rows=np.arange(m)
+    longest=0
+    for source in (binary&(np.abs(np.sin(tangent))<=np.sin(np.deg2rad(5))),
+                   (binary&(np.abs(np.cos(tangent))<=np.sin(np.deg2rad(5)))).T):
+        for slope in (0,-1/24,1/24,-1/12,1/12):
+            sheared=np.empty_like(source)
+            for column in range(m):
+                sheared[:,column]=source[(rows+int(round(slope*column)))%m,column]
+            longest=max(longest,longest_true_run(sheared))
+    return longest*mm_per_pixel
+
+def fft_grid_peak_ratio(field, frequencies=(8,11,12,280,390)):
+    core=field[:-1,:-1]-float(field[:-1,:-1].mean())
+    power=np.abs(np.fft.rfft2(core))**2
+    axis=(power[0]+power[:,0][:power.shape[1]])*.5
+    ratios=[]
+    for f in frequencies:
+        if f+7<len(axis):
+            background=np.mean(np.r_[axis[max(1,f-10):max(2,f-5)],axis[f+6:f+11]])
+            ratios.append(float(np.mean(axis[f-2:f+3])/max(background,1e-9)))
+    return max(ratios)
+
 def branch_mask(primary,count,seed):
     core=primary[:-1,:-1]
     result=np.zeros_like(core)
@@ -182,15 +339,19 @@ def branch_mask(primary,count,seed):
         sy,sx=starts[rng.integers(0,len(starts))]
         length=rng.integers(int(core.shape[0]*.025),int(core.shape[0]*.085))
         angle=rng.uniform(0,2*np.pi)
+        bend_phase=rng.uniform(0,2*np.pi)
         for step in range(length):
             taper=1-step/max(length-1,1)
-            y=int(round(sy+np.sin(angle)*step))%core.shape[0]
-            x=int(round(sx+np.cos(angle)*step))%core.shape[1]
-            result[y,x]=max(result[y,x],taper)
-            result[(y-1)%core.shape[0],x]=max(result[(y-1)%core.shape[0],x],taper*.6)
-            result[(y+1)%core.shape[0],x]=max(result[(y+1)%core.shape[0],x],taper*.6)
-            result[y,(x-1)%core.shape[1]]=max(result[y,(x-1)%core.shape[1]],taper*.6)
-            result[y,(x+1)%core.shape[1]]=max(result[y,(x+1)%core.shape[1]],taper*.6)
+            bend=2.2*np.sin(2*np.pi*step/22+bend_phase)*np.sin(np.pi*step/length)
+            cy=sy+np.sin(angle)*step+np.cos(angle)*bend
+            cx=sx+np.cos(angle)*step-np.sin(angle)*bend
+            y=int(round(cy))%core.shape[0]
+            x=int(round(cx))%core.shape[1]
+            for oy in range(-2,3):
+                for ox in range(-2,3):
+                    value=taper*np.exp(-.5*(oy*oy+ox*ox)/1.15)
+                    yy=(y+oy)%core.shape[0]; xx=(x+ox)%core.shape[1]
+                    result[yy,xx]=max(result[yy,xx],value)
     return np.pad(result,((0,1),(0,1)),mode='wrap')
 
 def label(canvas, text, x, y):
@@ -223,8 +384,19 @@ def save_ground(prefix,albedo,height01,size,height_mm,report,extra=None):
         'actual_height_range_mm':[float(height01.min()*height_mm),float(height01.max()*height_mm)],
         'seam_max':seam,'normal_convention':'+Y / OpenGL','height_bit_depth':16}
     material.update(metrics(albedo,height01,n,size,.1))
+    if prefix in ('T1_Ash','T5_AshMicro'):
+        height_png=decode_png(OUT/f'{prefix}_Height.png')[:-1,:-1,0]
+        albedo_png=decode_png(OUT/f'{prefix}_Albedo.png')[:-1,:-1]
+        luminance=np.sum(albedo_png*np.array([.2126,.7152,.0722]),axis=-1)
+        material['height_one_pixel_variance']=one_pixel_variance(height_png)
+        material['albedo_one_pixel_variance']=one_pixel_variance(luminance)
+        material['gradient_isotropy_max_min']=gradient_isotropy(height_png)
     if extra: material.update(extra)
     report['materials'][prefix]=material
+    crop_start=(albedo.shape[0]-320)//2
+    for name in ('Albedo','Normal'):
+        source=decode_png(OUT/f'{prefix}_{name}.png')
+        png(PREVIEW/f'{prefix}_{name}_Crop320_1to1.png',source[crop_start:crop_start+320,crop_start:crop_start+320])
     # A swatch and explicitly separate relit diagnostic; albedo files have no lighting.
     stride=4
     light=np.array([-.35,.45,.82]); light/=np.linalg.norm(light)
@@ -240,10 +412,16 @@ def save_ground(prefix,albedo,height01,size,height_mm,report,extra=None):
         relit=albedo*(.22+.78*np.clip(np.sum(n*light,axis=-1),0,1))[...,None]
         diagnostic[48:,index*768:(index+1)*768]=np.tile(relit[::diagnostic_stride,::diagnostic_stride],(3,3,1))
         label(diagnostic,title,index*768+18,14)
+        if index==1:
+            png(PREVIEW/f'{prefix}_Grazing_3x3.png',np.tile(relit[::diagnostic_stride,::diagnostic_stride],(3,3,1)))
     png(PREVIEW/f'{prefix}_Diagnostic_3x3_Frontal_Grazing.png',diagnostic)
 
 def generate():
-    report={'seed':SEED,'generator':'Blender Python / NumPy; no external images','materials':{},'encoding':{'albedo':'sRGB','other_maps':'linear','height':'unsigned 16-bit linear; decode sample * maximum millimetres','seam_method':'periodic fields; duplicated boundary texel; wrapped central derivatives'}}
+    report={'seed':SEED,'generator':'Blender Python / NumPy; no external images','materials':{},
+        'baseline_657bf8a_one_pixel_variance':{
+            'T1_Ash':{'height':.33109214901924133,'albedo':.3774512895921421},
+            'T5_AshMicro':{'height':.33147355914115906,'albedo':.3845536495363128}},
+        'encoding':{'albedo':'sRGB','other_maps':'linear','height':'unsigned 16-bit linear; decode sample * maximum millimetres','seam_method':'periodic fields; duplicated boundary texel; wrapped central derivatives'}}
     n=2048
     albedo,h,ash_masks=build_ash(n,2,SEED)
     save_ground('T1_Ash',albedo,h,2,6,report,ash_masks)
@@ -251,25 +429,34 @@ def generate():
     x=np.linspace(0,1,n,dtype=np.float32)[None,:]
     y=np.linspace(0,1,n,dtype=np.float32)[:,None]
     # Forty nominal cycles make a 10 cm pitch; periodic warping bends and splits ridges.
-    warp=.22*np.sin(2*np.pi*3*y)+.34*noise(n,9,SEED+10)+.10*noise(n,21,SEED+11)
-    pitch_mod=.70*noise(n,4,SEED+12)
-    phase=40*x+warp+.12*pitch_mod*np.sin(2*np.pi*2*x)
+    warp=.20*np.sin(2*np.pi*5*y+.16*np.sin(2*np.pi*x))+.055*np.sin(2*np.pi*6*y+.20*np.cos(2*np.pi*x))
+    pitch_mod=.55*noise(n,4,SEED+12)
+    phase=40*x+warp+.10*pitch_mod*np.sin(2*np.pi*2*x)
     primary=asymmetric_ripple(phase)
-    split=asymmetric_ripple(phase+.52*noise(n,12,SEED+13))
-    continuity=np.clip(1.15+1.6*noise(n,17,SEED+14),0,1)
-    shape=(.82*primary+.18*split)*(.55+.45*continuity)
+    shape,branch_markers=ripple_defects(seal(primary),SEED+13)
     shape=seal(shape)
-    amp=.0075+.0018*noise(n,6,SEED+15)
-    physical=.006+(shape-float(shape[:-1,:-1].mean()))*amp+.00022*standardized(noise(n,250,SEED+16))
+    amp=.0072*(1+.30*np.sin(2*np.pi*6*y+.3*np.sin(2*np.pi*x))+.055*noise(n,5,SEED+15))
+    physical=.006+(shape-float(shape[:-1,:-1].mean()))*amp+.00014*standardized(noise(n,250,SEED+16))
     h=seal(np.clip(physical/.012,0,1).astype(np.float32))
     h+=.5-float(h[:-1,:-1].mean()); h=seal(np.clip(h,0,1))
     ripple_fine=.018*standardized(noise(n,330,SEED+17))
     albedo=tone(rgb('B8B1A7'),1+ripple_fine-.04*(shape-float(shape[:-1,:-1].mean())))
-    save_ground('T2_Ripples',albedo,h,4,12,report,{'ridge_height_mm':[5.7,9.3],'nominal_pitch_cm':10,'wind_axis':'+U','crest_axis':'V'})
+    png(PREVIEW/'T2_Ripples_BranchMarkers.png',branch_markers/255)
+    ripple_extra=ripple_metrics(h,int(np.count_nonzero(branch_markers[:-1,:-1])))
+    ripple_extra.update({'nominal_pitch_cm':10,'wind_axis':'+U','crest_axis':'V'})
+    save_ground('T2_Ripples',albedo,h,4,12,report,ripple_extra)
+    branch_sites=np.argwhere(branch_markers[:-1,:-1]>0)
+    centre=np.array([n//2,n//2])
+    by,bx=branch_sites[np.argmin(np.sum((branch_sites-centre)**2,axis=1))]
+    y0=int(np.clip(by+75-160,0,n-320)); x0=int(np.clip(bx-160,0,n-320))
+    normal_png=decode_png(OUT/'T2_Ripples_Normal.png')
+    png(PREVIEW/'T2_Ripples_Branch_Normal_Crop320_1to1.png',normal_png[y0:y0+320,x0:x0+320])
     print('T2 ripples saved',flush=True)
     # Periodic Voronoi plate cracks; offset coordinates add irregular fracture bends.
-    wx=x+.011*noise(n,11,SEED+20)
-    wy=y+.011*noise(n,12,SEED+21)
+    wiggle_x=spectral_noise(n,SEED+20,[5.5])[0]
+    wiggle_y=spectral_noise(n,SEED+21,[5.5])[0]
+    wx=x+.011*noise(n,11,SEED+20)+.00155*wiggle_x
+    wy=y+.011*noise(n,12,SEED+21)+.00155*wiggle_y
     first=np.full((n,n),10,dtype=np.float32); second=first.copy()
     rng=np.random.default_rng(SEED+22)
     sites=[]
@@ -279,28 +466,48 @@ def generate():
         if all(np.linalg.norm(np.minimum(np.abs(candidate-site),1-np.abs(candidate-site)))>=.04 for site in sites):
             sites.append(candidate)
         attempts+=1
-    for sx,sy in sites:
+    nearest=np.zeros((n,n),dtype=np.uint8)
+    plate_tilt=np.zeros((n,n),dtype=np.float32)
+    tilt_vectors=rng.uniform(-1,1,(len(sites),2))
+    plate_tones=rng.choice([-.018,.018],size=len(sites))+rng.uniform(-.001,.001,len(sites))
+    for index,(sx,sy) in enumerate(sites):
         dx=np.abs(wx-sx); dx=np.minimum(dx,1-dx)
         dy=np.abs(wy-sy); dy=np.minimum(dy,1-dy)
         distance=dx*dx+dy*dy
         second=np.minimum(second,np.maximum(first,distance))
+        selected=distance<first
+        signed_dx=(wx-sx+.5)%1-.5
+        signed_dy=(wy-sy+.5)%1-.5
+        local_tilt=.0025*(signed_dx*tilt_vectors[index,0]+signed_dy*tilt_vectors[index,1])
+        plate_tilt=np.where(selected,local_tilt,plate_tilt)
+        nearest=np.where(selected,index,nearest)
         first=np.minimum(first,distance)
     site_min=min(float(np.linalg.norm(np.minimum(np.abs(a-b),1-np.abs(a-b)))) for i,a in enumerate(sites) for b in sites[i+1:])
     boundary=np.sqrt(second)-np.sqrt(first)
-    crack=np.exp(-(boundary/.00165)**2)
+    widthfield=np.clip(1+.45*spectral_noise(n,SEED+29,[6])[0],.45,1.7)
+    crack=np.exp(-(boundary/(.00140*widthfield))**2)
     branches=branch_mask(crack,34,SEED+23)
     crack=np.maximum(crack,branches)
     interruption=np.clip(1.35+1.8*noise(n,19,SEED+24),0,1)
     crack*=interruption
-    lip=np.clip(np.exp(-(boundary/.0052)**2)-np.exp(-(boundary/.0024)**2),0,1)
+    lip=np.clip(np.exp(-(boundary/.0048)**2)-np.exp(-(boundary/(.0022*widthfield))**2),0,1)
     deposits=crack*np.clip(.3+1.5*noise(n,33,SEED+25),0,1)
-    micro=.00035*standardized(noise(n,390,SEED+26))+.00012*standardized(pixel_noise(n,SEED+27))
-    physical=.006+micro-.0062*crack+.0010*lip+.00045*deposits
+    plate_micro,plate_broad=spectral_noise(n,SEED+26,[1.6,5])
+    micro=.00028*plate_micro+.00012*plate_broad
+    physical=.006+micro+plate_tilt-.0062*crack+.0010*lip+.00045*deposits
     h=seal(np.clip(physical/.012,0,1).astype(np.float32))
     h+=.5-float(h[:-1,:-1].mean()); h=seal(np.clip(h,0,1))
-    shade=1+.018*standardized(noise(n,280,SEED+28))-.025*crack+.035*deposits
+    shade=1+plate_tones[nearest]+.012*plate_micro+.009*plate_broad-.025*crack+.035*deposits
     albedo=tone(rgb('8C857B'),shade)
-    save_ground('T3_Crust',albedo,h,4,12,report,{'crack_width_mm':[2,6],'crack_depth_mm':[3.4,7.6],'cell_size_m':[.4,1.2],'edge_lift_mm':1.0,'t_junction_branches':34,'site_count':len(sites),'site_min_spacing_m':site_min*4})
+    png(PREVIEW/'T3_Crust_CrackMask.png',seal(crack.copy()))
+    png(PREVIEW/'T3_Crust_PlateNoise.png',np.clip(.5+.15*plate_micro,0,1))
+    crust_extra={'crack_width_mm':[2,6],'crack_depth_mm':[3.4,7.6],'cell_size_m':[.4,1.2],
+        'edge_lift_mm':1.0,'t_junction_branches':34,'site_count':len(sites),'site_min_spacing_m':site_min*4,
+        'longest_axis_crack_mm':longest_axis_crack(crack,4*1000/(n-1)),
+        'fft_grid_peak_ratio':fft_grid_peak_ratio(plate_micro),
+        'plate_tilt_peak_mm':float(np.percentile(np.abs(plate_tilt[:-1,:-1]),99.9)*1000),
+        'plate_tone_range_pct':float((np.max(plate_tones)-np.min(plate_tones))*100)}
+    save_ground('T3_Crust',albedo,h,4,12,report,crust_extra)
     print('T3 crust saved',flush=True)
     albedo,h,ash_masks=build_ash(1024,.5,SEED+100,micro=True)
     save_ground('T5_AshMicro',albedo,h,.5,3,report,ash_masks)

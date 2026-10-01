@@ -16,26 +16,29 @@
         6
       ],
       "actual_height_range_mm": [
-        0.09000285901129246,
-        5.910002946853638
+        0.08851870335638523,
+        5.9085187911987305
       ],
       "seam_max": 0.0,
       "normal_convention": "+Y / OpenGL",
       "height_bit_depth": 16,
       "mean_srgb": [
-        183.99999943460998,
-        177.0000000314034,
-        167.00000088950299
+        184.00000990155218,
+        177.0000069343019,
+        167.000007401305
       ],
-      "luminance_std_ratio": 0.06584269298341315,
-      "quadrant_mean_max_deviation": 0.00035773611181888487,
-      "block_mean_max_deviation": 0.004785299301147461,
-      "height_mean": 0.5,
-      "height_albedo_correlation_abs": 0.00025385395677024334,
+      "luminance_std_ratio": 0.09222217785671988,
+      "quadrant_mean_max_deviation": 0.0014026433821310302,
+      "block_mean_max_deviation": 0.02183610200881958,
+      "height_mean": 0.5000001192092896,
+      "height_albedo_correlation_abs": 0.0027058340053207953,
       "height_derived_from_albedo": false,
-      "normal_length_error": 1.7881393432617188e-07,
-      "dark_coverage": 0.007582676663622268,
-      "light_coverage": 0.010171091704494931
+      "normal_length_error": 1.1920928955078125e-07,
+      "height_one_pixel_variance": 0.0035698274253046563,
+      "albedo_one_pixel_variance": 0.03544234591090337,
+      "gradient_isotropy_max_min": 1.0487777150487392,
+      "dark_coverage": 0.008041842304286015,
+      "light_coverage": 0.01123070472141127
     },
     "T2_Ripples": {
       "size_m": [
@@ -51,27 +54,31 @@
         12
       ],
       "actual_height_range_mm": [
-        1.6087238788604736,
-        11.029545307159424
+        0.7706465721130371,
+        10.893371343612671
       ],
       "seam_max": 0.0,
       "normal_convention": "+Y / OpenGL",
       "height_bit_depth": 16,
       "mean_srgb": [
-        184.00000493675228,
-        177.0000053240994,
-        167.0000058827265
+        184.00000590793172,
+        177.00000625814968,
+        167.0000067643005
       ],
-      "luminance_std_ratio": 0.02150755111806253,
-      "quadrant_mean_max_deviation": 0.0003638923070293787,
-      "block_mean_max_deviation": 0.014511704444885254,
-      "height_mean": 0.4999999701976776,
-      "height_albedo_correlation_abs": 0.541844687000992,
+      "luminance_std_ratio": 0.02271386850616885,
+      "quadrant_mean_max_deviation": 8.473146665899378e-05,
+      "block_mean_max_deviation": 0.009904623031616211,
+      "height_mean": 0.5000002384185791,
+      "height_albedo_correlation_abs": 0.5964539304713393,
       "height_derived_from_albedo": false,
       "normal_length_error": 1.1920928955078125e-07,
+      "meander_wavelength_m": 0.8,
+      "meander_amplitude_m": 0.015541032390591401,
+      "branch_count_per_m2": 15.0,
+      "crest_height_modulation_fraction": 0.290454094088684,
       "ridge_height_mm": [
-        5.7,
-        9.3
+        5.036277770996094,
+        9.134330654144287
       ],
       "nominal_pitch_cm": 10,
       "wind_axis": "+U",
@@ -91,22 +98,22 @@
         12
       ],
       "actual_height_range_mm": [
-        0.09318995475769043,
-        7.676117420196533
+        0.0782085657119751,
+        8.37097692489624
       ],
       "seam_max": 0.0,
       "normal_convention": "+Y / OpenGL",
       "height_bit_depth": 16,
       "mean_srgb": [
-        140.00000541152517,
-        133.00000589594634,
-        122.99999899780657
+        140.000006854565,
+        133.00000727370184,
+        123.00000026916763
       ],
-      "luminance_std_ratio": 0.018110061371114695,
-      "quadrant_mean_max_deviation": 0.0001407813284188819,
-      "block_mean_max_deviation": 0.010750532150268555,
-      "height_mean": 0.4999999403953552,
-      "height_albedo_correlation_abs": 0.04846935011843813,
+      "luminance_std_ratio": 0.025699353005040407,
+      "quadrant_mean_max_deviation": 0.00679352519293519,
+      "block_mean_max_deviation": 0.0329744815826416,
+      "height_mean": 0.5,
+      "height_albedo_correlation_abs": 0.36392548510618233,
       "height_derived_from_albedo": false,
       "normal_length_error": 1.1920928955078125e-07,
       "crack_width_mm": [
@@ -124,7 +131,11 @@
       "edge_lift_mm": 1.0,
       "t_junction_branches": 34,
       "site_count": 42,
-      "site_min_spacing_m": 0.16070806148632238
+      "site_min_spacing_m": 0.16070806148632238,
+      "longest_axis_crack_mm": 35.17342452369321,
+      "fft_grid_peak_ratio": 1.3558862589456502,
+      "plate_tilt_peak_mm": 0.397108630044386,
+      "plate_tone_range_pct": 3.777050566306159
     },
     "T5_AshMicro": {
       "size_m": [
@@ -140,26 +151,39 @@
         3
       ],
       "actual_height_range_mm": [
-        0.044995528645813465,
-        2.954995572566986
+        0.044398111291229725,
+        2.9543981552124023
       ],
       "seam_max": 0.0,
       "normal_convention": "+Y / OpenGL",
       "height_bit_depth": 16,
       "mean_srgb": [
-        183.99999934247384,
-        176.99999995424037,
-        167.00000080520195
+        184.000001132268,
+        177.0000016710398,
+        167.00000243205056
       ],
-      "luminance_std_ratio": 0.06293375706184498,
-      "quadrant_mean_max_deviation": 0.0004953925669739512,
-      "block_mean_max_deviation": 0.0018295049667358398,
-      "height_mean": 0.49999988079071045,
-      "height_albedo_correlation_abs": 0.003005062301970512,
+      "luminance_std_ratio": 0.09018046222173277,
+      "quadrant_mean_max_deviation": 0.0021114467689691274,
+      "block_mean_max_deviation": 0.007187962532043457,
+      "height_mean": 0.4999999701976776,
+      "height_albedo_correlation_abs": 0.01001392337122752,
       "height_derived_from_albedo": false,
       "normal_length_error": 1.1920928955078125e-07,
-      "dark_coverage": 0.00616896426185992,
-      "light_coverage": 0.007995000616323102
+      "height_one_pixel_variance": 0.00201363299789192,
+      "albedo_one_pixel_variance": 0.01548175710586555,
+      "gradient_isotropy_max_min": 1.0514302916158513,
+      "dark_coverage": 0.005502953095423061,
+      "light_coverage": 0.007426454498633101
+    }
+  },
+  "baseline_657bf8a_one_pixel_variance": {
+    "T1_Ash": {
+      "height": 0.33109214901924133,
+      "albedo": 0.3774512895921421
+    },
+    "T5_AshMicro": {
+      "height": 0.33147355914115906,
+      "albedo": 0.3845536495363128
     }
   },
   "encoding": {
