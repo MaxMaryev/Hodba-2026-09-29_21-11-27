@@ -37,7 +37,7 @@ namespace Hodba.Client
             _origin = origin;
             _config = config;
             _material = material;
-            _boulderMaterial = boulderMaterial != null ? boulderMaterial : material;
+            _boulderMaterial = boulderMaterial;
 
             Fill(_stones, config.stoneMeshes, 6, 0.45f);
             Fill(_boulders, config.boulderMeshes, 3, 0.7f);

@@ -89,7 +89,7 @@ namespace Hodba.Client
             _gaze = new GazeController(course);
             _walker = new WalkerBody(config, _world);
             _rig = new FirstPersonRig(camera);
-            _body = new ShadowBody(config, config.stoneMaterial);
+            _body = new ShadowBody(config);
             _clock = new SkyClock();
             _sky = new SkyController(sun, config.skyMaterial);
             _exposure = new ExposureController(volume);
@@ -99,7 +99,6 @@ namespace Hodba.Client
             _dustShadows = new DustShadows();
             _saltation = new Saltation(_origin);
 
-            ApplyExternalTextures();
             _ground = new ClipmapTerrain(_world, _origin, config, config.groundMaterial);
             _ground.Update(_sim.Position);
             _stones = new StoneScatter(_world, _origin, config, config.stoneMaterial, config.boulderMaterial);
@@ -258,25 +257,6 @@ namespace Hodba.Client
             v.priority = 10;
             v.sharedProfile = config.volumeProfile;
             return v;
-        }
-
-        void ApplyExternalTextures()
-        {
-            var m = config.groundMaterial;
-            if (m == null) return;
-            // Готовый цвет (Т1+Т3) — только когда есть оба, иначе заглушка второго стала бы тёмно-серой.
-            if (config.ashAlbedo != null && config.packedAlbedo != null)
-            {
-                m.SetTexture("_AshAlbedo", config.ashAlbedo);
-                m.SetTexture("_PackedAlbedo", config.packedAlbedo);
-                m.SetFloat("_AlbedoMode", 1f);
-                m.SetColor("_AshColor", Color.white);
-                m.SetColor("_PackedColor", Color.white);
-            }
-            if (config.ashNormal != null) m.SetTexture("_AshNormal", config.ashNormal);
-            if (config.rippleNormal != null) m.SetTexture("_RippleNormal", config.rippleNormal);
-            if (config.footprintTexture != null && config.footprintMaterial != null)
-                config.footprintMaterial.SetTexture("_MainTex", config.footprintTexture);
         }
 
         static void Minimize()

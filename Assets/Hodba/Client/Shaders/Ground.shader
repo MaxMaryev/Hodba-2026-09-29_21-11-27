@@ -4,22 +4,21 @@
 // Где пепел, а где слежавшаяся корка, решает мир (r — рыхлость, g — рябь, b — неровность),
 // чтобы земля выглядела так, как её чувствуют ноги. Рябь-нормаль — там, где рябь есть в мире.
 // Все тайлы делят 4096 м — иначе при переносе плавающего центра рисунок прыгнет.
-// Свет шершавый (Орен — Найяр), в зерне и трещинах — микротени из альфы альбедо (AO);
+// Цвет и рельеф — арт Т1 (пепел), Т2 (рябь), Т3 (корка) напрямую; варианты тайла разбивают повтор.
+// Свет шершавый (Орен — Найяр), в зерне и трещинах — микротени из альфы альбедо (запекает генератор текстур);
 // дымка и тени пыльных облаков — общие с небом и камнями (HodbaAtmosphere.hlsl); там же позёмка — песок, бегущий по ветру.
 Shader "Hodba/Ground"
 {
     Properties
     {
-        _AshColor ("Пепел", Color) = (0.72, 0.69, 0.64, 1)
-        _PackedColor ("Слежавшийся пепел", Color) = (0.54, 0.51, 0.48, 1)
-        [Toggle] _AlbedoMode ("Текстуры — готовый цвет (Т1/Т3), а не серый рельеф", Float) = 0
-        [NoScaleOffset] _AshAlbedo ("Пепел (Т1)", 2D) = "gray" {}
+        [NoScaleOffset] _AshAlbedo ("Пепел (Т1): цвет, в альфе микротени", 2D) = "gray" {}
         _AshTile ("Пепел: метров на тайл", Float) = 2
-        [NoScaleOffset] _PackedAlbedo ("Слежавшийся (Т3)", 2D) = "gray" {}
-        _PackedTile ("Слежавшийся: метров на тайл", Float) = 4
-        _DetailStrength ("Сила зерна", Range(0, 1)) = 0.6
         [NoScaleOffset][Normal] _AshNormal ("Пепел: нормали", 2D) = "bump" {}
         _AshNormalStrength ("Сила нормалей пепла", Range(0, 2)) = 0.6
+        [NoScaleOffset] _PackedAlbedo ("Корка (Т3): цвет, в альфе микротени", 2D) = "gray" {}
+        _PackedTile ("Корка: метров на тайл", Float) = 4
+        [NoScaleOffset][Normal] _PackedNormal ("Корка: нормали (трещины)", 2D) = "bump" {}
+        _PackedNormalStrength ("Сила нормалей корки", Range(0, 2)) = 1
         [NoScaleOffset][Normal] _RippleNormal ("Рябь (Т2)", 2D) = "bump" {}
         _RippleTile ("Рябь: метров на тайл", Float) = 4
         _RippleStrength ("Сила ряби", Range(0, 2)) = 0.9
@@ -50,13 +49,10 @@ Shader "Hodba/Ground"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
         CBUFFER_START(UnityPerMaterial)
-            half4 _AshColor;
-            half4 _PackedColor;
-            half _AlbedoMode;
             float _AshTile;
             float _PackedTile;
-            half _DetailStrength;
             half _AshNormalStrength;
+            half _PackedNormalStrength;
             float _RippleTile;
             half _RippleStrength;
             float _RippleFadeDistance;
@@ -169,6 +165,7 @@ Shader "Hodba/Ground"
             TEXTURE2D(_AshAlbedo);     SAMPLER(sampler_AshAlbedo);
             TEXTURE2D(_PackedAlbedo);  SAMPLER(sampler_PackedAlbedo);
             TEXTURE2D(_AshNormal);     SAMPLER(sampler_AshNormal);
+            TEXTURE2D(_PackedNormal);  SAMPLER(sampler_PackedNormal);
             TEXTURE2D(_RippleNormal);  SAMPLER(sampler_RippleNormal);
             TEXTURE2D(_MacroTex);      SAMPLER(sampler_MacroTex);
             TEXTURE2D(_VariationTex);  SAMPLER(sampler_VariationTex);
@@ -195,11 +192,6 @@ Shader "Hodba/Ground"
                 o.normalWS = g.normalWS;
                 o.surface = g.surface;
                 return o;
-            }
-
-            half3 Detail(half3 tex, half3 tint)
-            {
-                return _AlbedoMode > 0.5 ? tint * tex : tint * lerp(1.0h, tex * 2.0h, _DetailStrength);
             }
 
             float2 VariantOffset(float index)
@@ -235,19 +227,20 @@ Shader "Hodba/Ground"
                 return sampled;
             }
 
-            half3 SampleGrain(float2 uv, float v, half weight, float2 dx, float2 dy, half strength)
+            // Нормали — с теми же вариантами и весом, что у альбедо: рельеф совпадает с цветом.
+            half3 SampleNormalNoTile(TEXTURE2D_PARAM(tex, smp), float2 uv, float v, half weight, float2 dx, float2 dy, half strength)
             {
                 float index = floor(v);
                 half3 sampled = half3(0.0h, 0.0h, 1.0h);
                 UNITY_BRANCH
                 if (weight <= 0.0h)
-                    sampled = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_AshNormal, sampler_AshNormal, uv + VariantOffset(index), dx, dy), strength);
+                    sampled = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index), dx, dy), strength);
                 else if (weight >= 1.0h)
-                    sampled = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_AshNormal, sampler_AshNormal, uv + VariantOffset(index + 1.0), dx, dy), strength);
+                    sampled = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index + 1.0), dx, dy), strength);
                 else
                 {
-                    half3 a = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_AshNormal, sampler_AshNormal, uv + VariantOffset(index), dx, dy), strength);
-                    half3 b = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_AshNormal, sampler_AshNormal, uv + VariantOffset(index + 1.0), dx, dy), strength);
+                    half3 a = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index), dx, dy), strength);
+                    half3 b = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index + 1.0), dx, dy), strength);
                     sampled = lerp(a, b, weight);
                 }
                 return sampled;
@@ -270,8 +263,9 @@ Shader "Hodba/Ground"
                 half3 variation = SAMPLE_TEXTURE2D_GRAD(_VariationTex, sampler_VariationTex, wp / 128.0, dx / 128.0, dy / 128.0).rgb;
                 float variant = variation.r * 8.0;
                 half detailScale = lerp(1.0h - _DetailVar, 1.0h + _DetailVar, variation.b);
+                // Вес второго варианта; вблизи его уточняет выборка альбедо (с поправкой на яркость).
                 half ashWeight = smoothstep(0.0, 1.0, saturate((frac(variant) - 0.5) / max((float)_VariantBlend, 0.05) + 0.5));
-                half defaultAshWeight = ashWeight;
+                half packedWeight = ashWeight;
 
                 // Пепел или корка — как решил мир: рыхлость (корка ~0,3, пепел ~0,7).
                 half ashness = smoothstep(0.35h, 0.65h, i.surface.r);
@@ -294,26 +288,23 @@ Shader "Hodba/Ground"
                     if (visibility > 0.0h)
                         detail = SampleNoTile(TEXTURE2D_ARGS(_AshAlbedo, sampler_AshAlbedo), wp / ashTile, variant,
                             dx / ashTile, dy / ashTile, mean, ashWeight);
-                    ash = Detail(max(0.0h, mean.rgb + (detail.rgb - mean.rgb) * (detailScale * visibility)), _AshColor.rgb);
+                    ash = max(0.0h, mean.rgb + (detail.rgb - mean.rgb) * (detailScale * visibility));
                     ashAO = 1.0h + (detail.a - mean.a) * visibility / max(mean.a, 0.5h);
                 }
                 UNITY_BRANCH
                 if (ashness < 1.0h)
                 {
                     half4 mean = SAMPLE_TEXTURE2D_LOD(_PackedAlbedo, sampler_PackedAlbedo, float2(0.5, 0.5), 16.0);
-                    half weight = 0.0h;
                     half visibility = DetailVisibility(packedTile, fw);
                     half4 detail = mean;
                     UNITY_BRANCH
                     if (visibility > 0.0h)
                         detail = SampleNoTile(TEXTURE2D_ARGS(_PackedAlbedo, sampler_PackedAlbedo), wp / packedTile, variant,
-                            dx / packedTile, dy / packedTile, mean, weight);
-                    packed = Detail(max(0.0h, mean.rgb + (detail.rgb - mean.rgb) * (detailScale * visibility)), _PackedColor.rgb);
+                            dx / packedTile, dy / packedTile, mean, packedWeight);
+                    packed = max(0.0h, mean.rgb + (detail.rgb - mean.rgb) * (detailScale * visibility));
                     packedAO = 1.0h + (detail.a - mean.a) * visibility / max(mean.a, 0.5h);
                 }
                 half mid = variation.g * 2.0h - 1.0h;
-                // На корке зерно тоже есть; его вес плавно входит в вес альбедо пепла.
-                ashWeight = lerp(defaultAshWeight, ashWeight, ashness);
                 half3 midTint = (1.0h + mid * _MidTint) * (1.0h + half3(1.0h, 0.0h, -1.0h) * (mid * _MidHue));
                 half3 albedo = lerp(packed, ash, ashness) * midTint * lerp(1.0h, 0.85h + 0.3h * macro, _MacroTint);
 
@@ -328,19 +319,31 @@ Shader "Hodba/Ground"
                 float wavelength = rippleTile / max(_RipplePeriods, 1.0);
                 float fx = max(abs(dx.x), abs(dy.x));
                 rippleAmount *= smoothstep(2.0, 6.0, wavelength / max(fx, 0.000001));
-                half grainAmount = _AshNormalStrength * saturate(1.0 - dist / 30.0) * buried;
-                half3 rn = half3(0.0h, 0.0h, 1.0h), an = half3(0.0h, 0.0h, 1.0h);
+                // Зерно пепла и трещины корки — вблизи, дальше они тоньше пикселя.
+                half grainFade = saturate(1.0 - dist / 30.0) * buried;
+                half3 rn = half3(0.0h, 0.0h, 1.0h), gn = half3(0.0h, 0.0h, 1.0h);
                 UNITY_BRANCH
                 if (rippleAmount > 0.0h)
                     rn = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_RippleNormal, sampler_RippleNormal, wp / rippleTile, dx / rippleTile, dy / rippleTile), rippleAmount);
                 UNITY_BRANCH
-                if (grainAmount > 0.0h)
-                    an = SampleGrain(wp / ashTile, variant, ashWeight, dx / ashTile, dy / ashTile, grainAmount);
+                if (grainFade > 0.0h)
+                {
+                    half3 ashN = half3(0.0h, 0.0h, 1.0h), packedN = half3(0.0h, 0.0h, 1.0h);
+                    UNITY_BRANCH
+                    if (ashness > 0.0h)
+                        ashN = SampleNormalNoTile(TEXTURE2D_ARGS(_AshNormal, sampler_AshNormal), wp / ashTile, variant, ashWeight,
+                            dx / ashTile, dy / ashTile, _AshNormalStrength * grainFade);
+                    UNITY_BRANCH
+                    if (ashness < 1.0h)
+                        packedN = SampleNormalNoTile(TEXTURE2D_ARGS(_PackedNormal, sampler_PackedNormal), wp / packedTile, variant, packedWeight,
+                            dx / packedTile, dy / packedTile, _PackedNormalStrength * grainFade);
+                    gn = lerp(packedN, ashN, ashness);
+                }
 
                 float3 N = normalize(i.normalWS);
                 float3 T = normalize(float3(1, 0, 0) - N * N.x);
                 float3 B = cross(T, N);
-                float3 n = normalize(N + T * (rn.x + an.x) + B * (rn.y + an.y));
+                float3 n = normalize(N + T * (rn.x + gn.x) + B * (rn.y + gn.y));
 
                 half ao = lerp(1.0h, lerp(packedAO, ashAO, ashness), _AOStrength);
 

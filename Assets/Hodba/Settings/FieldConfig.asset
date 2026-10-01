@@ -667,7 +667,6 @@ MonoBehaviour:
   gustPeriod: 9
   dustCount: 300
   dustBox: 36
-  driftRate: 30
   masterVolume: 0.9
   windVolume: 0.7
   stepVolume: 0.55
@@ -712,18 +711,13 @@ MonoBehaviour:
   footprintMax: 1500
   footprintLifetimeMinutes: 180
   footprintSize: {x: 0.14, y: 0.32}
-  footprintTexture: {fileID: 0}
   groundMaterial: {fileID: 2100000, guid: 317b0fa68f8cea64bb45c015860df9ab, type: 2}
   skyMaterial: {fileID: 2100000, guid: 0a27f2ef0af31944299b1e8ccb78467d, type: 2}
   footprintMaterial: {fileID: 2100000, guid: 326dbd3b6ff59794eb5950782716387f, type: 2}
   dustMaterial: {fileID: 2100000, guid: bc8d2c82cdd36124081e6ca22dae03b9, type: 2}
-  driftMaterial: {fileID: 2100000, guid: 84942297a49b02c4ca81cebba00fc13b, type: 2}
+  sprayMaterial: {fileID: 2100000, guid: 84942297a49b02c4ca81cebba00fc13b, type: 2}
   volumeProfile: {fileID: 11400000, guid: b3a8a700ffce60f41a0798caf0d12756, type: 2}
   eyeShader: {fileID: 4800000, guid: 82b3f5c37320e96418dbf3ec27597f41, type: 3}
-  ashAlbedo: {fileID: 2800000, guid: 22a0a36c826870c45a69a3f50490417a, type: 3}
-  ashNormal: {fileID: 2800000, guid: 5575401ef63e2f340bd0276f86b9cabe, type: 3}
-  rippleNormal: {fileID: 2800000, guid: 01ad4d0fad9f63048b3f9224131e2db5, type: 3}
-  packedAlbedo: {fileID: 2800000, guid: 0a44368f6b18e5c40bddd96ea5e46a2c, type: 3}
   walkerPrefab: {fileID: 5881506588838914867, guid: 098b1554d3867654cb2673ca463c0fa0, type: 3}
   continueFromSave: 1
   backgroundMaxHours: 168

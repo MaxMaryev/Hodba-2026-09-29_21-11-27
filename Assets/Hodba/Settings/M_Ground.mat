@@ -12,8 +12,7 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords:
-  - _ALBEDOMODE_ON
+  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -40,6 +39,10 @@ Material:
         m_Texture: {fileID: 2800000, guid: 0a44368f6b18e5c40bddd96ea5e46a2c, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _PackedNormal:
+        m_Texture: {fileID: 2800000, guid: 58ca4fedac78aec4cb0944773f170f0c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _RippleNormal:
         m_Texture: {fileID: 2800000, guid: 01ad4d0fad9f63048b3f9224131e2db5, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -50,10 +53,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AlbedoMode: 1
     - _AshNormalStrength: 0.6
     - _AshTile: 2
-    - _DetailStrength: 0.6
     - _DetailVar: 0.35
     - _FadePxEnd: 8
     - _FadePxStart: 64
@@ -62,6 +63,7 @@ Material:
     - _MacroTint: 0.5
     - _MidHue: 0.03
     - _MidTint: 0.08
+    - _PackedNormalStrength: 1
     - _PackedTile: 4
     - _RippleFadeDistance: 70
     - _RipplePeriods: 40
@@ -69,8 +71,6 @@ Material:
     - _RippleTile: 4
     - _VariantBlend: 0.3
     - _Wrap: 0.1
-    m_Colors:
-    - _AshColor: {r: 1, g: 1, b: 1, a: 1}
-    - _PackedColor: {r: 1, g: 1, b: 1, a: 1}
+    m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

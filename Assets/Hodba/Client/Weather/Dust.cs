@@ -91,7 +91,7 @@ namespace Hodba.Client
         /// </summary>
         ParticleSystem CreateSpray(FieldConfig config)
         {
-            var ps = NewSystem("Sand Spray", config.driftMaterial != null ? config.driftMaterial : config.dustMaterial,
+            var ps = NewSystem("Sand Spray", config.sprayMaterial,
                 ParticleSystemRenderMode.Stretch);
             var r = ps.GetComponent<ParticleSystemRenderer>();
             r.velocityScale = 0.05f;

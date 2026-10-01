@@ -18,12 +18,15 @@ namespace Hodba.Field.Editor
         {
             string n = Path.GetFileNameWithoutExtension(t.assetPath);
             bool normal = n.EndsWith("_Normal", StringComparison.Ordinal);
+            bool albedo = n.EndsWith("_Albedo", StringComparison.Ordinal);
             bool footprint = n.StartsWith("T4_", StringComparison.Ordinal);
-            t.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
-            t.sRGBTexture = n.EndsWith("_Albedo", StringComparison.Ordinal);
+            // Альфа несёт данные: у следа — маску, у земли — микротени впадин, у MetallicSmoothness — гладкость.
+            bool ground = n.StartsWith("T1_", StringComparison.Ordinal) || n.StartsWith("T3_", StringComparison.Ordinal) || n.StartsWith("T5_", StringComparison.Ordinal);
             bool packed = n.EndsWith("_MetallicSmoothness", StringComparison.Ordinal);
-            t.alphaSource = (footprint && t.sRGBTexture) || packed ? TextureImporterAlphaSource.FromInput : TextureImporterAlphaSource.None;
-            t.alphaIsTransparency = footprint && t.sRGBTexture;
+            t.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            t.sRGBTexture = albedo;
+            t.alphaSource = (albedo && (footprint || ground)) || packed ? TextureImporterAlphaSource.FromInput : TextureImporterAlphaSource.None;
+            t.alphaIsTransparency = albedo && footprint;
             t.wrapMode = footprint ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
             t.mipmapEnabled = true;
             t.filterMode = FilterMode.Trilinear;
@@ -80,8 +83,12 @@ namespace Hodba.Field.Editor
                 m.humanDescription = h;
             }
         }
-        internal static void ConfigureClips(ModelImporter m)
+        // Клипы путника зациклены и стоят на месте: шаг двигает игра, а не корень анимации.
+        void OnPreprocessAnimation()
         {
+            if (!assetPath.StartsWith(Root + "Models/", StringComparison.Ordinal)) return;
+            if (!Path.GetFileName(assetPath).StartsWith("M3_", StringComparison.Ordinal)) return;
+            var m = (ModelImporter)assetImporter;
             var clips = m.defaultClipAnimations;
             foreach (var clip in clips)
             {

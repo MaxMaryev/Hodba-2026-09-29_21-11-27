@@ -3,6 +3,7 @@ using Hodba.Client.Body;
 using Hodba.Sim.Walk;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 namespace Hodba.Client
 {
@@ -108,7 +109,7 @@ namespace Hodba.Client
         public float fogValleyBoost = 2.5f;
         [Tooltip("За сколько секунд уровень слоя догоняет землю под путником: поднялся на бархан — низина осталась в дымке.")]
         public float fogLevelLag = 45f;
-        [Tooltip("Шум облаков (создаёт Hodba ▸ Setup Field). Пусто — теней нет.")]
+        [Tooltip("Шум облаков (создаёт Hodba ▸ Refresh Field Assets). Пусто — теней нет.")]
         public Texture2D dustShadowTexture;
         [Range(0f, 1f)] public float dustShadowStrength = 0.35f;
         [Tooltip("Доля неба в облаках.")]
@@ -147,7 +148,6 @@ namespace Hodba.Client
         public List<Mesh> stoneMeshes = new List<Mesh>();
         public List<Mesh> boulderMeshes = new List<Mesh>();
         public Material stoneMaterial;
-        [Tooltip("Материал валунов. Пусто — как у камней.")]
         public Material boulderMaterial;
         [Tooltip("Модели со стороны уже нужного размера (М1: 5–40 см, М2: 0,6–1,8 м) — не масштабировать под диапазон.")]
         public bool authoredStoneSizes = true;
@@ -174,7 +174,7 @@ namespace Hodba.Client
         [Range(0f, 2f)] public float dustRaise = 0.6f;
 
         [Header("Позёмка: песок бежит по земле")]
-        [Tooltip("Струи и фронты порыва (создаёт Hodba ▸ Setup Field). Пусто — позёмки нет.")]
+        [Tooltip("Струи и фронты порыва (создаёт Hodba ▸ Refresh Field Assets). Пусто — позёмки нет.")]
         public Texture2D saltationTexture;
         [Tooltip("Сила ветра (0..1), с которой песок начинает бежать.")]
         [Range(0f, 1f)] public float saltationThreshold = 0.35f;
@@ -216,25 +216,19 @@ namespace Hodba.Client
         [Header("Следы")]
         public int footprintMax = 1500;
         public float footprintLifetimeMinutes = 180f;
-        public Vector2 footprintSize = new Vector2(0.13f, 0.30f);
-        [Tooltip("Серая, 0.5 — нейтраль. Импорт без sRGB. Пусто — сгенерированная.")]
-        public Texture2D footprintTexture;
+        [Tooltip("Холст Т4: 14 × 32 см.")]
+        public Vector2 footprintSize = new Vector2(0.14f, 0.32f);
 
-        [Header("Материалы (создаёт Hodba ▸ Setup Field)")]
+        [Header("Ассеты поля (выставляет Hodba ▸ Refresh Field Assets)")]
         public Material groundMaterial;
         public Material skyMaterial;
         public Material footprintMaterial;
         public Material dustMaterial;
-        public Material driftMaterial;
+        [FormerlySerializedAs("driftMaterial")]
+        public Material sprayMaterial;
         public VolumeProfile volumeProfile;
         [Tooltip("Hidden/Hodba/Eye — веки поверх картинки.")]
         public Shader eyeShader;
-
-        [Header("Ассеты со стороны (Docs/Assets/field-assets.md)")]
-        [Tooltip("Т1 albedo")] public Texture2D ashAlbedo;
-        [Tooltip("Т1 normal")] public Texture2D ashNormal;
-        [Tooltip("Т2 normal")] public Texture2D rippleNormal;
-        [Tooltip("Т3 albedo")] public Texture2D packedAlbedo;
         [Tooltip("М3: префаб путника с Animator. Виден только его тень.")]
         public GameObject walkerPrefab;
 

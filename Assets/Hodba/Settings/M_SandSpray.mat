@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: T4_FootprintRight
-  m_Shader: {fileID: 4800000, guid: 2f67aa48c8ab93146b131e8d62e9666a, type: 3}
+  m_Name: M_SandSpray
+  m_Shader: {fileID: 4800000, guid: 536d3880605d9de46b194625a1d3833c, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -19,21 +19,18 @@ Material:
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
-  m_LockedProperties:
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
-    - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: d587c42b822af0342a51a2b79fa1f677, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _BumpMap:
-        m_Texture: {fileID: 2800000, guid: fcdd164bf05316f43924d43e320bab50, type: 3}
+    - _MainTex:
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
-    m_Floats: []
+    m_Floats:
+    - _Scatter: 1.5
     m_Colors:
-    - _BaseColor: {r: 1, g: 1, b: 1, a: 0.85}
+    - _Tint: {r: 0.82, g: 0.78999996, b: 0.74, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
