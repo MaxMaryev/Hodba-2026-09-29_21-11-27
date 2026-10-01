@@ -92,6 +92,47 @@ namespace Hodba.Tests
             Assert.That(worst * 1000f, Is.LessThan(0.3f), "без скачков");
         }
 
+        /// <summary>Разброс крена вокруг среднего, °.</summary>
+        static float RollSpread(BodyHarness h, float seconds)
+        {
+            var rolls = new System.Collections.Generic.List<float>();
+            for (float t = 0; t < seconds; t += 1f / 30f)
+            {
+                h.Tick(1f / 30f);
+                rolls.Add(h.Gait.Pose.Roll);
+            }
+            float mean = rolls.Average();
+            return Mathf.Sqrt(rolls.Select(r => (r - mean) * (r - mean)).Average());
+        }
+
+        /// <summary>
+        /// На подъёме передняя стопа всегда выше задней — это склон, а не перекос под ногами:
+        /// корпус не должен валиться с ноги на ногу, а тело — подниматься ступеньками по шагу.
+        /// </summary>
+        [Test]
+        public void Slope_DoesNotRockTheBody()
+        {
+            var flat = Walking(new FlatWorld());
+            var hill = Walking(new HillWorld());
+            flat.Run(5f, 1f / 30f);
+            hill.Run(5f, 1f / 30f);
+            float a = RollSpread(flat, 20f), b = RollSpread(hill, 20f);
+            TestContext.WriteLine($"раскачка крена: ровно {a:0.00}°, в гору {b:0.00}°");
+            Assert.That(b, Is.LessThan(a * 1.3f + 0.1f), "склон по ходу не раскачивает корпус");
+
+            float min = float.MaxValue, max = float.MinValue;
+            for (int i = 0; i < 600; i++)
+            {
+                hill.Tick(1f / 30f);
+                float ground = hill.World.SampleHeightMm(hill.Sim.Position.X, hill.Sim.Position.Z) / 1000f;
+                float lag = hill.Gait.State.SupportHeight - ground;
+                min = Mathf.Min(min, lag);
+                max = Mathf.Max(max, lag);
+            }
+            TestContext.WriteLine($"опора относительно земли под телом гуляет на {(max - min) * 1000f:0} мм");
+            Assert.That(max - min, Is.LessThan(0.02f), "в гору — плавно, без ступенек по шагу");
+        }
+
         [Test]
         public void Ripples_DoNotJerkTheWalk()
         {

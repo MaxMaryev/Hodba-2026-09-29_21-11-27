@@ -65,7 +65,9 @@ namespace Hodba.Client.Body
         bool _planStone, _planStumble;
         float _blend, _lastSpeed, _sinkDepth, _event, _gearTimer = -1f;
         float _groundCaution, _aheadChange;
-        float _heightLeft, _heightRight, _supportTarget;
+        float _heightLeft, _heightRight, _crossSlope;
+        WorldPos _footLeft, _footRight;
+        bool _bothFeet;
 
         public MotionRole Role => MotionRole.Rhythm;
         public PoseDelta Pose { get; private set; }
@@ -84,17 +86,20 @@ namespace Hodba.Client.Body
         }
 
         /// <summary>После телепорта или долгого отсутствия: шаги считаются заново, без шквала.</summary>
-        public void Reset(double distance, float groundHeight)
+        public void Reset(double distance, WorldPos position, float groundHeight)
         {
             _stepStart = distance;
             _planStone = _planStumble = false;
-            SnapSupport(groundHeight);
+            SnapSupport(position, groundHeight);
         }
 
         /// <summary>Обе стопы — на земле под человеком (старт, телепорт).</summary>
-        void SnapSupport(float height)
+        void SnapSupport(WorldPos at, float height)
         {
-            _heightLeft = _heightRight = _supportTarget = height;
+            _footLeft = _footRight = at;
+            _heightLeft = _heightRight = height;
+            _crossSlope = 0f;
+            _bothFeet = true;
             _support.Reset(height);
         }
 
@@ -110,7 +115,7 @@ namespace Hodba.Client.Body
                 _stepStart = sim.Distance;
                 _cur = _prev = Standing(stepLength);
                 _lastSpeed = sim.Speed;
-                SnapSupport(ctx.World.SampleHeightMm(sim.Position.X, sim.Position.Z) / 1000f);
+                SnapSupport(sim.Position, ctx.World.SampleHeightMm(sim.Position.X, sim.Position.Z) / 1000f);
             }
 
             float accel = dt > 0f ? (sim.Speed - _lastSpeed) / dt : 0f;
@@ -187,12 +192,24 @@ namespace Hodba.Client.Body
             float lean = sim.Slope * s.slopeLean + Mathf.Clamp(accel, -3f, 3f) * s.accelLean;
             _lean.Step(lean, dt, s.leanHz, 0.7f);
 
-            // Неровная земля: тело стоит на опорной стопе и переходит на новую за долю шага; разница высот
-            // левой и правой стопы кренит корпус, опорной и прошлой — чуть наклоняет. Тело это частично гасит.
-            _support.Step(_supportTarget, dt, s.supportHz, 0.9f);
-            float across = Mathf.Atan2(_heightRight - _heightLeft, 2f * Mathf.Max(0.05f, s.footOffset)) * Mathf.Rad2Deg;
-            float stanceH = _stanceLeft ? _heightLeft : _heightRight, otherH = _stanceLeft ? _heightRight : _heightLeft;
-            float along = Mathf.Atan2(stanceH - otherH, Mathf.Max(0.2f, _cur.Length)) * Mathf.Rad2Deg;
+            // Неровная земля: тело стоит на опорной стопе и переходит на новую за долю шага. Высота опоры —
+            // стопа, продолженная по общему уклону до тела: склон тело проходит плавно, а не ступеньками по шагу;
+            // ступенька остаётся только там, где стопа встала выше или ниже склона (бугор, рябь).
+            float onLeft = AlongSlope(ctx, _footLeft, _heightLeft, sim.Position);
+            float onRight = AlongSlope(ctx, _footRight, _heightRight, sim.Position);
+            float supportTarget = _bothFeet ? (onLeft + onRight) * 0.5f : _stanceLeft ? onLeft : onRight;
+            _support.Step(supportTarget, dt, s.supportHz, 0.9f);
+
+            // Крен и наклон — только от неровности под стопами, не от склона: стопы стоят со сдвигом на полшага,
+            // и на подъёме передняя всегда выше; на склоне человек держит корпус прямо. Тело это ещё и частично гасит.
+            float bumpRight = _heightRight - AlongSlope(ctx, _footLeft, _heightLeft, _footRight);
+            float across = Mathf.Atan2(bumpRight, 2f * Mathf.Max(0.05f, s.footOffset)) * Mathf.Rad2Deg;
+            var stanceFoot = _stanceLeft ? _footLeft : _footRight;
+            float stanceH = _stanceLeft ? _heightLeft : _heightRight;
+            float bumpStance = _stanceLeft
+                ? stanceH - AlongSlope(ctx, _footRight, _heightRight, stanceFoot)
+                : stanceH - AlongSlope(ctx, _footLeft, _heightLeft, stanceFoot);
+            float along = Mathf.Atan2(bumpStance, Mathf.Max(0.2f, _cur.Length)) * Mathf.Rad2Deg;
             _footRoll.Step(-across * s.footRoll, dt, s.leanHz * 2f, 0.8f);
             _footPitch.Step(-along * s.footPitch, dt, s.leanHz * 2f, 0.8f);
 
@@ -240,9 +257,18 @@ namespace Hodba.Client.Body
 
             // Стопа встала на свою высоту — тело переносит вес на неё (даже если шаг не прочувствован: следы и
             // опора не должны расходиться после длинного кадра).
-            if (t.Left) _heightLeft = t.Height;
-            else _heightRight = t.Height;
-            _supportTarget = t.Height;
+            if (t.Left)
+            {
+                _heightLeft = t.Height;
+                _footLeft = t.Contact;
+            }
+            else
+            {
+                _heightRight = t.Height;
+                _footRight = t.Contact;
+            }
+            _bothFeet = false;
+            _crossSlope = CrossSlope(ctx);
 
             _groundCaution = Mathf.Max(t.Feel.caution, t.Roughness * s.roughCaution);
             if (felt)
@@ -385,9 +411,17 @@ namespace Hodba.Client.Body
             var surface = ctx.World.SampleSurface(contact.X, contact.Z);
             // Приставил или переступил: стоит на обеих — опора посередине.
             float h = ctx.World.SampleHeightMm(contact.X, contact.Z) / 1000f;
-            if (left) _heightLeft = h;
-            else _heightRight = h;
-            _supportTarget = (_heightLeft + _heightRight) * 0.5f;
+            if (left)
+            {
+                _heightLeft = h;
+                _footLeft = contact;
+            }
+            else
+            {
+                _heightRight = h;
+                _footRight = contact;
+            }
+            _bothFeet = true;
             _events?.Emit(new StepEvent(left, contact, ctx.Sim.Course, force, surface.Kind, surface.Looseness / 65535f,
                 false, false, false, 0.5f, true));
         }
@@ -406,6 +440,34 @@ namespace Hodba.Client.Body
             float x = f.x * forward + r.x * side;
             float z = f.z * forward + r.z * side;
             return ctx.Sim.Position.Offset((long)Math.Round(x * 1000f), (long)Math.Round(z * 1000f));
+        }
+
+        /// <summary>Высота в точке to, если от стопы (from, h) идти по общему уклону — вдоль курса и поперёк.</summary>
+        float AlongSlope(in BodyContext ctx, WorldPos from, float h, WorldPos to)
+        {
+            float dx = (to.X - from.X) / 1000f, dz = (to.Z - from.Z) / 1000f;
+            var f = ctx.Forward;
+            var r = ctx.Right;
+            return h + ctx.Sim.Slope * (dx * f.x + dz * f.z) + _crossSlope * (dx * r.x + dz * r.z);
+        }
+
+        /// <summary>
+        /// Уклон поперёк курса (плюс — вправо вверх), по длинной базе, как и продольный у симуляции:
+        /// рябь и зерно усредняются, склон бархана остаётся. Раз на шаг — дёшево.
+        /// </summary>
+        static float CrossSlope(in BodyContext ctx)
+        {
+            var p = ctx.Sim.Position;
+            var r = ctx.Right;
+            long right = 0, left = 0;
+            for (long k = 1; k <= 3; k++)
+            {
+                long dx = (long)(r.x * k * 1000), dz = (long)(r.z * k * 1000);
+                right += ctx.World.SampleHeightMm(p.X + dx, p.Z + dz);
+                left += ctx.World.SampleHeightMm(p.X - dx, p.Z - dz);
+            }
+            // Среднее плечо — 2 м вправо и 2 м влево.
+            return (float)((right - left) / 3.0 / 4000.0);
         }
 
         static Shape Standing(float stepLength) => new Shape { Length = stepLength };

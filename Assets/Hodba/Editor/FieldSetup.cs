@@ -40,6 +40,7 @@ namespace Hodba.Editor
                 var ashDetail = TextureGen.AshDetail(Generated + "/T_AshDetail.png");
                 var packedDetail = TextureGen.PackedDetail(Generated + "/T_PackedDetail.png");
                 var macro = TextureGen.Macro(Generated + "/T_Macro.png");
+                var variation = TextureGen.Variation(Generated + "/T_Variation.png");
                 var ashNormal = TextureGen.AshNormal(Generated + "/T_AshNormal.png");
                 var ripples = TextureGen.Ripples(Generated + "/T_Ripples.png");
                 var footprint = TextureGen.Footprint(Generated + "/T_Footprint.png");
@@ -52,6 +53,8 @@ namespace Hodba.Editor
                     m.SetTexture("_AshAlbedo", ashDetail);
                     m.SetTexture("_PackedAlbedo", packedDetail);
                     m.SetTexture("_MacroTex", macro);
+                    m.SetTexture("_VariationTex", variation);
+                    m.SetFloat("_MacroTint", 0.5f);
                     m.SetTexture("_AshNormal", ashNormal);
                     m.SetTexture("_RippleNormal", ripples);
                 });
@@ -105,6 +108,21 @@ namespace Hodba.Editor
             {
                 EditorUtility.ClearProgressBar();
             }
+        }
+
+        // Узкое обновление материала: не пересобирает сцену, пайплайн или артовые текстуры.
+        [MenuItem("Hodba/Debug/Generate Ground Variation", priority = 202)]
+        public static void GenerateGroundVariation()
+        {
+            Directory.CreateDirectory(Generated);
+            var variation = TextureGen.Variation(Generated + "/T_Variation.png");
+            if (variation == null) throw new System.InvalidOperationException("T_Variation не импортирована.");
+            var ground = AssetDatabase.LoadAssetAtPath<Material>(Settings + "/M_Ground.mat");
+            if (ground == null) throw new System.InvalidOperationException("M_Ground не найден.");
+            ground.SetTexture("_VariationTex", variation);
+            ground.SetFloat("_MacroTint", 0.5f);
+            EditorUtility.SetDirty(ground);
+            AssetDatabase.SaveAssets();
         }
 
         [MenuItem("Hodba/Reset Walker (start from zero)", priority = 20)]

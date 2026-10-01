@@ -44,18 +44,30 @@ Material:
         m_Texture: {fileID: 2800000, guid: 01ad4d0fad9f63048b3f9224131e2db5, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _VariationTex:
+        m_Texture: {fileID: 2800000, guid: 229307e3626f55d42b3237677902cb46, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _AlbedoMode: 1
     - _AshNormalStrength: 0.6
     - _AshTile: 2
     - _DetailStrength: 0.6
+    - _DetailVar: 0.35
+    - _FadePxEnd: 8
+    - _FadePxStart: 64
     - _MacroContrast: 1.8
     - _MacroTile: 512
+    - _MacroTint: 0.5
+    - _MidHue: 0.03
+    - _MidTint: 0.08
     - _PackedTile: 4
     - _RippleFadeDistance: 70
+    - _RipplePeriods: 40
     - _RippleStrength: 0.9
     - _RippleTile: 4
+    - _VariantBlend: 0.3
     - _Wrap: 0.3
     m_Colors:
     - _AshColor: {r: 1, g: 1, b: 1, a: 1}

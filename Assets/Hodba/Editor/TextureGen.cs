@@ -35,6 +35,10 @@ namespace Hodba.Editor
             return new Color(n, n, n, 1f);
         }, false, false);
 
+        /// <summary>Три независимых поля на тайл 128 м: варианты (4 м), оттенок (32–8 м), детали (16 м).</summary>
+        public static Texture2D Variation(string path) => Write(path, 512, 512, (u, v) =>
+            new Color(Fbm(u, v, 32, 2, 301), Fbm(u, v, 4, 3, 401), Fbm(u, v, 8, 2, 501), 1f), false, false);
+
         /// <summary>Мелкая неровность пепла: ~2 мм на тайл 2 м.</summary>
         public static Texture2D AshNormal(string path)
         {
@@ -170,6 +174,7 @@ namespace Hodba.Editor
             imp.anisoLevel = 4;
             imp.textureCompression = TextureImporterCompression.CompressedHQ;
             imp.SaveAndReimport();
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 

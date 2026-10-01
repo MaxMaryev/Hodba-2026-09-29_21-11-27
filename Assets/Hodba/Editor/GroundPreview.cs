@@ -8,6 +8,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
 
 namespace Hodba.Editor
 {
@@ -26,6 +27,8 @@ namespace Hodba.Editor
             public float Z;
             public float SunElevation;
             public float Pitch;
+            public float Yaw;
+            public float OriginX;
         }
 
         [MenuItem("Hodba/Debug/Ground Preview", priority = 201)]
@@ -38,7 +41,11 @@ namespace Hodba.Editor
                 Debug.LogError("[GroundPreview] нет FieldConfig — запусти Hodba ▸ Setup Field.");
                 return;
             }
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // Снимки не закрывают рабочую сцену и не теряют несохранённые изменения.
+            var previousScene = SceneManager.GetActiveScene();
+            var previousOrigin = Shader.GetGlobalVector("_HodbaOriginMod");
+            var previewScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            SceneManager.SetActiveScene(previewScene);
 
             var world = new ProvingGround(config.seed);
             var sunGo = new GameObject("Sun");
@@ -51,6 +58,7 @@ namespace Hodba.Editor
 
             var camGo = new GameObject("Eyes");
             var cam = camGo.AddComponent<Camera>();
+            cam.scene = previewScene;
             cam.fieldOfView = 60f;
             cam.nearClipPlane = 0.05f;
             cam.farClipPlane = 5000f;
@@ -61,15 +69,22 @@ namespace Hodba.Editor
 
             var shots = new[]
             {
-                new Shot { Name = "стекло, низкое солнце", Z = 30f, SunElevation = 6f, Pitch = 28f },
-                new Shot { Name = "рябь, низкое солнце", Z = 95f, SunElevation = 6f, Pitch = 28f },
-                new Shot { Name = "рябь, полдень", Z = 95f, SunElevation = 65f, Pitch = 28f },
-                new Shot { Name = "бугры, низкое солнце", Z = 260f, SunElevation = 6f, Pitch = 28f },
-                new Shot { Name = "бугры, полдень", Z = 260f, SunElevation = 65f, Pitch = 28f },
-                new Shot { Name = "к горизонту через все кольца", Z = 260f, SunElevation = 12f, Pitch = 3f },
+                new Shot { Name = "стекло, низкое солнце", Z = 30f, SunElevation = 6f, Pitch = 28f, Yaw = 10f },
+                new Shot { Name = "рябь, низкое солнце", Z = 95f, SunElevation = 6f, Pitch = 28f, Yaw = 10f },
+                new Shot { Name = "рябь, полдень", Z = 95f, SunElevation = 65f, Pitch = 28f, Yaw = 10f },
+                new Shot { Name = "бугры, низкое солнце", Z = 260f, SunElevation = 6f, Pitch = 28f, Yaw = 10f },
+                new Shot { Name = "бугры, полдень", Z = 260f, SunElevation = 65f, Pitch = 28f, Yaw = 10f },
+                new Shot { Name = "к горизонту через все кольца", Z = 260f, SunElevation = 12f, Pitch = 3f, Yaw = 10f },
+                new Shot { Name = "корка, вдаль", Z = 30f, SunElevation = 12f, Pitch = 8f, Yaw = 10f },
+                new Shot { Name = "рябь вдоль ветра, пологий ракурс", Z = 95f, SunElevation = 6f, Pitch = 6f, Yaw = 90f },
+                new Shot { Name = "перенос центра: 512 м", Z = 95f, SunElevation = 6f, Pitch = 28f, Yaw = 90f, OriginX = 512f },
+                new Shot { Name = "перенос центра: 4096 + 512 м", Z = 95f, SunElevation = 6f, Pitch = 28f, Yaw = 90f, OriginX = 4608f },
             };
 
-            var sheet = new Texture2D(W * 2, H * 3, TextureFormat.RGB24, false);
+            int rows = (shots.Length + 1) / 2;
+            var sheet = new Texture2D(W * 2, H * rows, TextureFormat.RGB24, false);
+            var frame = new Texture2D(W, H, TextureFormat.RGB24, false);
+            Color32[] rebaseReference = null;
             var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
             try
             {
@@ -77,22 +92,51 @@ namespace Hodba.Editor
                 {
                     var s = shots[i];
                     var focus = WorldPos.FromMeters(0, s.Z);
-                    var origin = new FloatingOrigin(focus);
+                    // Меняется только центр координат; мировая точка и геометрия остаются теми же.
+                    var origin = new FloatingOrigin(s.OriginX == 0f ? focus : WorldPos.FromMeters(s.OriginX, 0));
                     using (var ground = new ClipmapTerrain(world, origin, config, config.groundMaterial))
                     {
                         // Солнце сбоку-спереди: низкое солнце вытягивает тени от каждого бугорка.
                         sunGo.transform.rotation = Quaternion.Euler(s.SunElevation, 200f, 0f);
                         float h = world.SampleHeightMm(focus) / 1000f;
-                        camGo.transform.SetPositionAndRotation(origin.ToLocal(focus, h + config.eyeHeight), Quaternion.Euler(s.Pitch, 10f, 0f));
+                        camGo.transform.SetPositionAndRotation(origin.ToLocal(focus, h + config.eyeHeight), Quaternion.Euler(s.Pitch, s.Yaw, 0f));
 
                         ground.Tick(focus);
                         cam.targetTexture = rt;
                         RenderPipeline.SubmitRenderRequest(cam, new UniversalRenderPipeline.SingleCameraRequest { destination = rt });
                         var old = RenderTexture.active;
                         RenderTexture.active = rt;
-                        sheet.ReadPixels(new Rect(0, 0, W, H), (i % 2) * W, (2 - i / 2) * H);
-                        RenderTexture.active = old;
-                        cam.targetTexture = null;
+                        try
+                        {
+                            frame.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+                            frame.Apply();
+                            var pixels = frame.GetPixels32();
+                            sheet.SetPixels32((i % 2) * W, (rows - 1 - i / 2) * H, W, H, pixels);
+                            if (s.OriginX == 512f) rebaseReference = pixels;
+                            if (s.OriginX == 4608f && rebaseReference != null)
+                            {
+                                int maxDifference = 0;
+                                int changedPixels = 0;
+                                int maxPixel = 0;
+                                long totalDifference = 0;
+                                for (int p = 0; p < pixels.Length; p++)
+                                {
+                                    var a = rebaseReference[p];
+                                    var b = pixels[p];
+                                    int dr = System.Math.Abs(a.r - b.r), dg = System.Math.Abs(a.g - b.g), db = System.Math.Abs(a.b - b.b);
+                                    int difference = System.Math.Max(dr, System.Math.Max(dg, db));
+                                    if (difference > maxDifference) { maxDifference = difference; maxPixel = p; }
+                                    if (difference > 2) changedPixels++;
+                                    totalDifference += dr + dg + db;
+                                }
+                                Debug.Log($"[GroundPreview] Rebase: max={maxDifference}/255 at ({maxPixel % W},{maxPixel / W}), mean={totalDifference / (pixels.Length * 3.0):F6}/255, pixels > 2/255: {changedPixels}/{pixels.Length}");
+                            }
+                        }
+                        finally
+                        {
+                            RenderTexture.active = old;
+                            cam.targetTexture = null;
+                        }
                     }
                     Debug.Log($"[GroundPreview] {i + 1}. {s.Name}");
                 }
@@ -106,6 +150,10 @@ namespace Hodba.Editor
                 rt.Release();
                 Object.DestroyImmediate(rt);
                 Object.DestroyImmediate(sheet);
+                Object.DestroyImmediate(frame);
+                Shader.SetGlobalVector("_HodbaOriginMod", previousOrigin);
+                SceneManager.SetActiveScene(previousScene);
+                EditorSceneManager.CloseScene(previewScene, true);
             }
         }
     }

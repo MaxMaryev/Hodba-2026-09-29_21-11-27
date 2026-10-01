@@ -113,6 +113,6 @@ namespace Hodba.Client
 
         /// <summary>После телепорта: шаги с нуля, без шквала следов.</summary>
         public void Reset(WalkSim sim) =>
-            _gait.Reset(sim.Distance, _world.SampleHeightMm(sim.Position.X, sim.Position.Z) / 1000f);
+            _gait.Reset(sim.Distance, sim.Position, _world.SampleHeightMm(sim.Position.X, sim.Position.Z) / 1000f);
     }
 }

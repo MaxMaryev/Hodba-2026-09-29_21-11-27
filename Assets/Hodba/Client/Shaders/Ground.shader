@@ -26,6 +26,14 @@ Shader "Hodba/Ground"
         _MacroTile ("Пятна: метров на тайл", Float) = 512
         _MacroContrast ("Контраст пятен", Range(0, 4)) = 1.8
         _MacroTint ("Пятнистость внутри одного вида", Range(0, 1)) = 0.25
+        [NoScaleOffset] _VariationTex ("Варианты / оттенок / детали (128 м)", 2D) = "gray" {}
+        _VariantBlend ("Ширина перехода вариантов", Range(0.05, 1)) = 0.3
+        _MidTint ("Яркость средних пятен", Range(0, 0.3)) = 0.08
+        _MidHue ("Тёплые / холодные пятна", Range(0, 0.1)) = 0.03
+        _DetailVar ("Вариация силы деталей", Range(0, 1)) = 0.35
+        _FadePxStart ("Полные детали: пикселей на тайл", Float) = 64
+        _FadePxEnd ("Средний цвет: пикселей на тайл", Float) = 8
+        _RipplePeriods ("Гребней ряби на тайл", Float) = 40
         _Wrap ("Мягкость света", Range(0, 1)) = 0.3
     }
 
@@ -50,6 +58,13 @@ Shader "Hodba/Ground"
             float _MacroTile;
             half _MacroContrast;
             half _MacroTint;
+            half _VariantBlend;
+            half _MidTint;
+            half _MidHue;
+            half _DetailVar;
+            float _FadePxStart;
+            float _FadePxEnd;
+            float _RipplePeriods;
             half _Wrap;
         CBUFFER_END
 
@@ -148,6 +163,7 @@ Shader "Hodba/Ground"
             TEXTURE2D(_AshNormal);     SAMPLER(sampler_AshNormal);
             TEXTURE2D(_RippleNormal);  SAMPLER(sampler_RippleNormal);
             TEXTURE2D(_MacroTex);      SAMPLER(sampler_MacroTex);
+            TEXTURE2D(_VariationTex);  SAMPLER(sampler_VariationTex);
 
             float4 _HodbaOriginMod;
 
@@ -182,10 +198,75 @@ Shader "Hodba/Ground"
                 return _AlbedoMode > 0.5 ? tint * tex : tint * lerp(1.0h, tex * 2.0h, _DetailStrength);
             }
 
+            float2 VariantOffset(float index)
+            {
+                return frac(sin(float2(3.0, 7.0) * index));
+            }
+
+            // Производные исходного UV вычисляются до всех веток и разрывов индекса варианта.
+            half3 SampleNoTile(TEXTURE2D_PARAM(tex, smp), float2 uv, float v,
+                float2 dx, float2 dy, half3 mean, out half weight)
+            {
+                float index = floor(v);
+                float width = max((float)_VariantBlend, 0.05);
+                float t = saturate((frac(v) - 0.5) / width + 0.5);
+                weight = smoothstep(0.0, 1.0, t);
+                half3 sampled = mean;
+                UNITY_BRANCH
+                if (t <= 0.0)
+                    sampled = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index), dx, dy).rgb;
+                else if (t >= 1.0)
+                    sampled = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index + 1.0), dx, dy).rgb;
+                else
+                {
+                    half3 a = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index), dx, dy).rgb;
+                    half3 b = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index + 1.0), dx, dy).rgb;
+                    // Смещение по яркости затухает на краях окна: ветки остаются непрерывными.
+                    float brightnessDifference = dot(a - b, half3(0.2126h, 0.7152h, 0.0722h));
+                    weight = smoothstep(0.0, 1.0, saturate(t - 0.1 * brightnessDifference * (4.0 * t * (1.0 - t)) / width));
+                    half variance = weight * weight + (1.0h - weight) * (1.0h - weight);
+                    sampled = mean + (lerp(a, b, weight) - mean) * rsqrt(variance);
+                }
+                return sampled;
+            }
+
+            half3 SampleGrain(float2 uv, float v, half weight, float2 dx, float2 dy, half strength)
+            {
+                float index = floor(v);
+                half3 sampled = half3(0.0h, 0.0h, 1.0h);
+                UNITY_BRANCH
+                if (weight <= 0.0h)
+                    sampled = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_AshNormal, sampler_AshNormal, uv + VariantOffset(index), dx, dy), strength);
+                else if (weight >= 1.0h)
+                    sampled = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_AshNormal, sampler_AshNormal, uv + VariantOffset(index + 1.0), dx, dy), strength);
+                else
+                {
+                    half3 a = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_AshNormal, sampler_AshNormal, uv + VariantOffset(index), dx, dy), strength);
+                    half3 b = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_AshNormal, sampler_AshNormal, uv + VariantOffset(index + 1.0), dx, dy), strength);
+                    sampled = lerp(a, b, weight);
+                }
+                return sampled;
+            }
+
+            half DetailVisibility(float tile, float footprint)
+            {
+                float end = max(_FadePxEnd, 0.0);
+                float start = max(_FadePxStart, end + 0.001);
+                return smoothstep(end, start, tile / max(footprint, 0.000001));
+            }
+
             half4 frag(Varyings i) : SV_Target
             {
                 float2 wp = i.positionWS.xz + _HodbaOriginMod.xy;
                 float dist = distance(i.positionWS, GetCameraPositionWS());
+                float2 dx = ddx(wp), dy = ddy(wp);
+                float fw = max(length(dx), length(dy));
+                float ashTile = max(_AshTile, 0.001), packedTile = max(_PackedTile, 0.001);
+                half3 variation = SAMPLE_TEXTURE2D_GRAD(_VariationTex, sampler_VariationTex, wp / 128.0, dx / 128.0, dy / 128.0).rgb;
+                float variant = variation.r * 8.0;
+                half detailScale = lerp(1.0h - _DetailVar, 1.0h + _DetailVar, variation.b);
+                half ashWeight = smoothstep(0.0, 1.0, saturate((frac(variant) - 0.5) / max((float)_VariantBlend, 0.05) + 0.5));
+                half defaultAshWeight = ashWeight;
 
                 // Пепел или корка — как решил мир: рыхлость (корка ~0,3, пепел ~0,7).
                 half ashness = smoothstep(0.35h, 0.65h, i.surface.r);
@@ -194,15 +275,52 @@ Shader "Hodba/Ground"
                 half macro = SAMPLE_TEXTURE2D(_MacroTex, sampler_MacroTex, wp / _MacroTile).r;
                 macro = saturate((macro - 0.5h) * _MacroContrast + 0.5h);
 
-                half3 ash = Detail(SAMPLE_TEXTURE2D(_AshAlbedo, sampler_AshAlbedo, wp / _AshTile).rgb, _AshColor.rgb);
-                half3 packed = Detail(SAMPLE_TEXTURE2D(_PackedAlbedo, sampler_PackedAlbedo, wp / _PackedTile).rgb, _PackedColor.rgb);
-                half3 albedo = lerp(packed, ash, ashness) * lerp(1.0h, 0.85h + 0.3h * macro, _MacroTint);
+                half3 ash = 0.0h, packed = 0.0h;
+                UNITY_BRANCH
+                if (ashness > 0.0h)
+                {
+                    half3 mean = SAMPLE_TEXTURE2D_LOD(_AshAlbedo, sampler_AshAlbedo, float2(0.5, 0.5), 16.0).rgb;
+                    half visibility = DetailVisibility(ashTile, fw);
+                    half3 detail = mean;
+                    UNITY_BRANCH
+                    if (visibility > 0.0h)
+                        detail = SampleNoTile(TEXTURE2D_ARGS(_AshAlbedo, sampler_AshAlbedo), wp / ashTile, variant,
+                            dx / ashTile, dy / ashTile, mean, ashWeight);
+                    ash = Detail(max(0.0h, mean + (detail - mean) * (detailScale * visibility)), _AshColor.rgb);
+                }
+                UNITY_BRANCH
+                if (ashness < 1.0h)
+                {
+                    half3 mean = SAMPLE_TEXTURE2D_LOD(_PackedAlbedo, sampler_PackedAlbedo, float2(0.5, 0.5), 16.0).rgb;
+                    half weight = 0.0h;
+                    half visibility = DetailVisibility(packedTile, fw);
+                    half3 detail = mean;
+                    UNITY_BRANCH
+                    if (visibility > 0.0h)
+                        detail = SampleNoTile(TEXTURE2D_ARGS(_PackedAlbedo, sampler_PackedAlbedo), wp / packedTile, variant,
+                            dx / packedTile, dy / packedTile, mean, weight);
+                    packed = Detail(max(0.0h, mean + (detail - mean) * (detailScale * visibility)), _PackedColor.rgb);
+                }
+                half mid = variation.g * 2.0h - 1.0h;
+                // На корке зерно тоже есть; его вес плавно входит в вес альбедо пепла.
+                ashWeight = lerp(defaultAshWeight, ashWeight, ashness);
+                half3 midTint = (1.0h + mid * _MidTint) * (1.0h + half3(1.0h, 0.0h, -1.0h) * (mid * _MidHue));
+                half3 albedo = lerp(packed, ash, ashness) * midTint * lerp(1.0h, 0.85h + 0.3h * macro, _MacroTint);
 
                 // Рябь — там, где она есть в мире, и вблизи; вдали только мерцала бы.
                 half rippleAmount = _RippleStrength * saturate(1.0 - dist / _RippleFadeDistance) * i.surface.g;
+                float rippleTile = max(_RippleTile, 0.001);
+                float wavelength = rippleTile / max(_RipplePeriods, 1.0);
+                float fx = max(abs(dx.x), abs(dy.x));
+                rippleAmount *= smoothstep(2.0, 6.0, wavelength / max(fx, 0.000001));
                 half grainAmount = _AshNormalStrength * saturate(1.0 - dist / 30.0);
-                half3 rn = UnpackNormalScale(SAMPLE_TEXTURE2D(_RippleNormal, sampler_RippleNormal, wp / _RippleTile), rippleAmount);
-                half3 an = UnpackNormalScale(SAMPLE_TEXTURE2D(_AshNormal, sampler_AshNormal, wp / _AshTile), grainAmount);
+                half3 rn = half3(0.0h, 0.0h, 1.0h), an = half3(0.0h, 0.0h, 1.0h);
+                UNITY_BRANCH
+                if (rippleAmount > 0.0h)
+                    rn = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_RippleNormal, sampler_RippleNormal, wp / rippleTile, dx / rippleTile, dy / rippleTile), rippleAmount);
+                UNITY_BRANCH
+                if (grainAmount > 0.0h)
+                    an = SampleGrain(wp / ashTile, variant, ashWeight, dx / ashTile, dy / ashTile, grainAmount);
 
                 float3 N = normalize(i.normalWS);
                 float3 T = normalize(float3(1, 0, 0) - N * N.x);
