@@ -6,7 +6,8 @@ namespace Hodba.World.Gen
     /// Рельеф на десятки и сотни метров: поля барханов и холмистые равнины между огромными плато.
     /// Где это — решают медленные маски на километры: можно днями идти по столу, а можно выйти к барханам.
     /// Барханы — поперёк ветра, дующего на восток: пологий наветренный склон на запад, крутой подветренный
-    /// (не круче угла естественного откоса). Гребни изогнуты и рвутся на отдельные барханы.
+    /// (не круче угла естественного откоса), 6–30 м; гребни изогнуты и рвутся на отдельные барханы.
+    /// Барханы сидят на спинах гигантских пологих валов (драа) в десятки метров.
     /// Только целые числа: сервер видит ту же землю. Все размеры — стартовые, подбираются.
     /// </summary>
     public static class Dunes
@@ -17,14 +18,20 @@ namespace Hodba.World.Gen
         const long FieldCell = 6_000_000, RollingCell = 4_000_000;
 
         // Барханы: две длины волны, смешанные по месту, — длина «гуляет» без разрыва фазы.
-        const long LengthA = 140_000, LengthB = 220_000;
+        // Чем выше бархан, тем длиннее волна: подветренный склон (30% длины) не круче откоса.
+        const long LengthA = 300_000, LengthB = 450_000;
         const long Rise = One * 7 / 10; // наветренный склон — 70% длины, подветренный — 30%
-        const long WarpCell = 400_000, WarpMm = 60_000;
-        const long SegmentCell = 160_000;
-        const long AmpCell = 2_000_000, MinMm = 3_000, MaxMm = 12_000;
+        const long WarpCell = 900_000, WarpMm = 80_000;
+        const long SegmentCell = 350_000;
+        const long AmpCell = 2_000_000, MinMm = 6_000, MaxMm = 30_000;
 
-        // Холмистая равнина: пологие бугры в пару метров на сотню-другую метров.
-        const long RollCell = 150_000, RollMm = 2_500;
+        // Гигантские дюны (драа): пологие валы на километры, на их спинах — барханы.
+        const long DraaA = 2_400_000, DraaB = 3_600_000;
+        const long DraaRise = One * 6 / 10;
+        const long DraaMinMm = 15_000, DraaMaxMm = 60_000;
+
+        // Холмистая равнина: пологие бугры в несколько метров на сотни метров.
+        const long RollCell = 300_000, RollMm = 6_000;
 
         /// <summary>0..One — насколько здесь поле барханов.</summary>
         public static int Field(long x, long z, uint seed) =>
@@ -57,7 +64,14 @@ namespace Hodba.World.Gen
 
             long dune = wave * segment >> 16;
             dune = dune * amp >> 16;
-            return h + (dune * field >> 16);
+
+            // Под барханами — гигантский вал: пески поднимаются на десятки метров, барханы сидят на его спине.
+            long draaWave = (MicroRelief.Wave(u, DraaA, DraaRise) * (One - mix)
+                             + MicroRelief.Wave(u + 900_000, DraaB, DraaRise) * mix) >> 16;
+            long draaAmp = DraaMinMm + ((DraaMaxMm - DraaMinMm) * ValueNoise.Sample(x, z, 5_000_000, seed + 371) >> 16);
+            long draa = draaWave * draaAmp >> 16;
+
+            return h + ((dune + draa) * field >> 16);
         }
     }
 }

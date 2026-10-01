@@ -26,8 +26,8 @@ namespace Hodba.World.Gen
 
         public long SampleHeightMm(long xMm, long zMm)
         {
-            // Пологие волны: сотни метров, до ~1,5 м.
-            long swell = (long)ValueNoise.Fbm(xMm, zMm, 420_000, 3, _seed) * 1_500 >> 16;
+            // Пологие волны: сотни метров, до ~4 м. Даже на плато стол не мёртвый.
+            long swell = (long)ValueNoise.Fbm(xMm, zMm, 420_000, 3, _seed) * 4_000 >> 16;
 
             // Мелкая неровность: десятки метров, ~0,25 м.
             long ripple = (long)ValueNoise.Fbm(xMm, zMm, 48_000, 2, _seed + 7) * 250 >> 16;
