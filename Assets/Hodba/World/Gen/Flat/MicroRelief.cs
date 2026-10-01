@@ -92,10 +92,12 @@ namespace Hodba.World.Gen
         }
 
         /// <summary>Асимметричная волна 0..One: подъём на 70% длины, спад на 30%, без изломов.</summary>
-        static long Wave(long u, long length)
+        static long Wave(long u, long length) => Wave(u, length, One * 7 / 10);
+
+        /// <summary>Асимметричная волна 0..One: подъём на долю rise (Q16) длины, спад на остаток, без изломов.</summary>
+        public static long Wave(long u, long length, long rise)
         {
             long p = WorldPos.FloorMod(u, length) * One / length; // 0..One
-            const long rise = One * 7 / 10;
             return p < rise
                 ? SmoothQ(p * One / rise, 0, One)
                 : SmoothQ(One - (p - rise) * One / (One - rise), 0, One);
@@ -114,6 +116,6 @@ namespace Hodba.World.Gen
         public static int RoughnessOf(int ripple, int bumps) => System.Math.Max(bumps, ripple * 2 / 5);
 
         /// <summary>−One..One → 0..One.</summary>
-        static int Unsigned(int signed) => (signed + One) / 2;
+        public static int Unsigned(int signed) => (signed + One) / 2;
     }
 }

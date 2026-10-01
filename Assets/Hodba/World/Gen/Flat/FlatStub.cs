@@ -4,7 +4,7 @@ namespace Hodba.World.Gen
 {
     /// <summary>
     /// Заглушка для вехи «Поле»: бесконечное поле пепла.
-    /// Пологие волны на сотни метров, вдали — низкие гряды, чтобы горизонт не был линейкой.
+    /// Огромные плато и холмистые равнины, поля барханов (<see cref="Dunes"/>), вдали — низкие гряды.
     /// Под ногами — где почти стол, где рябь от ветра, где бугры (<see cref="MicroRelief"/>).
     /// Пепел и корка переходят друг в друга на метрах, а не по линии.
     /// </summary>
@@ -12,14 +12,14 @@ namespace Hodba.World.Gen
     {
         public const string Id = "flat-stub";
 
-        const int AshLooseness = 45_000, CrustLooseness = 20_000;
+        const int AshLooseness = 45_000, CrustLooseness = 20_000, DuneLooseness = 55_000;
 
         readonly uint _seed;
 
         public FlatStub(uint seed)
         {
             _seed = seed;
-            Info = new WorldInfo(seed, 2, Id);
+            Info = new WorldInfo(seed, 3, Id);
         }
 
         public WorldInfo Info { get; }
@@ -39,28 +39,44 @@ namespace Hodba.World.Gen
             ridgeQ = ridgeQ * ridgeQ >> 16;
             long ridge = ridgeQ * 40_000 >> 16;
 
-            int loose = Looseness(xMm, zMm, out _);
-            MicroRelief.Masks(xMm, zMm, _seed, loose, out int rippleMask, out int bumps);
+            // Барханы и холмы: десятки и сотни метров.
+            int field = Dunes.Field(xMm, zMm, _seed);
+            long dunes = Dunes.Height(xMm, zMm, _seed, field);
+
+            int loose = Looseness(xMm, zMm, field, out _);
+            Masks(xMm, zMm, loose, field, out int rippleMask, out int bumps);
             long micro = MicroRelief.Evaluate(xMm, zMm, _seed, loose, rippleMask, bumps).HeightMm;
 
-            return swell + ripple + ridge + micro;
+            return swell + ripple + ridge + dunes + micro;
         }
 
         public SurfaceSample SampleSurface(long xMm, long zMm)
         {
-            int loose = Looseness(xMm, zMm, out bool packed);
-            MicroRelief.Masks(xMm, zMm, _seed, loose, out int ripple, out int bumps);
+            int field = Dunes.Field(xMm, zMm, _seed);
+            int loose = Looseness(xMm, zMm, field, out bool packed);
+            Masks(xMm, zMm, loose, field, out int ripple, out int bumps);
             int roughness = MicroRelief.RoughnessOf(ripple, bumps);
             return new SurfaceSample(packed ? SurfaceKind.PackedAsh : SurfaceKind.FineAsh, loose, roughness, ripple);
         }
 
-        /// <summary>Рыхлость непрерывна: между пеплом и коркой — полоса в метры.</summary>
-        int Looseness(long xMm, long zMm, out bool packed)
+        /// <summary>На барханах — рябь, а не бугры: сыпучее не держит кочек.</summary>
+        void Masks(long xMm, long zMm, int loose, int field, out int ripple, out int bumps)
+        {
+            MicroRelief.Masks(xMm, zMm, _seed, loose, out ripple, out bumps);
+            bumps = (int)((long)bumps * (ValueNoise.One - field) >> 16);
+        }
+
+        /// <summary>
+        /// Рыхлость непрерывна: между пеплом и коркой — полоса в метры. Барханы — сыпучий пепел.
+        /// </summary>
+        int Looseness(long xMm, long zMm, int field, out bool packed)
         {
             int n = ValueNoise.Fbm(xMm, zMm, 256_000, 2, _seed + 101);
             int t = MicroRelief.SmoothQ(n, 12_000, 20_000);
-            packed = t > ValueNoise.One / 2;
-            return AshLooseness + (int)((long)(CrustLooseness - AshLooseness) * t >> 16);
+            int loose = AshLooseness + (int)((long)(CrustLooseness - AshLooseness) * t >> 16);
+            loose += (int)((long)(DuneLooseness - loose) * field >> 16);
+            packed = loose < ValueNoise.One / 2;
+            return loose;
         }
     }
 }

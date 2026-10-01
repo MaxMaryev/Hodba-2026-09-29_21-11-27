@@ -7,7 +7,8 @@ namespace Hodba.World.Gen
     /// проходишь всё, что ходьба должна различать. Полосы поперёк курса, так что шаг с твёрдого
     /// на рыхлое делает сначала одна нога, потом другая.
     /// 0–60 м — твёрдо, стекло; 60–130 м — рыхлый пепел в ряби, с лёгкой волной; 130–210 м — подъём ~12%
-    /// по корке с зерном; дальше — плато в буграх и наносах. Позади старта — то же стекло.
+    /// по корке с зерном; 210–310 м — плато в буграх и наносах; 320–450 м — бархан поперёк пути: пологий
+    /// наветренный подъём на 12 м и крутой подветренный спуск (не круче откоса). Дальше и позади старта — стекло.
     /// </summary>
     public sealed class ProvingGround : IWorldQuery
     {
@@ -17,6 +18,8 @@ namespace Hodba.World.Gen
         const double Grade = 0.12;
         const long Ease = 6_000; // мягкий перегиб в начале и в конце подъёма, мм
         const long Blend = 4_000; // характер рельефа меняется на 4 м, а не по линии
+        const long BumpsEnd = 310_000, DuneStart = 320_000, DuneCrest = 420_000, DuneEnd = 450_000;
+        const double DuneHeight = 12_000;
 
         readonly uint _seed;
 
@@ -41,6 +44,7 @@ namespace Hodba.World.Gen
             }
 
             h += Climb(zMm);
+            h += Dune(zMm);
 
             var s = SampleSurface(xMm, zMm);
             h += MicroRelief.Evaluate(xMm, zMm, _seed, s.Looseness, s.Ripple, Bumps(zMm)).HeightMm;
@@ -57,12 +61,29 @@ namespace Hodba.World.Gen
                 return new SurfaceSample(SurfaceKind.FineAsh, 55_000, MicroRelief.RoughnessOf(ripple, 0), ripple);
             }
 
+            if (zMm >= DuneStart - Blend && zMm < DuneEnd + Blend)
+            {
+                // Бархан — сыпучий, в ряби.
+                int ripple = MicroRelief.SmoothQ(Math.Min(zMm - (DuneStart - Blend), DuneEnd + Blend - zMm), 0, Blend);
+                return new SurfaceSample(SurfaceKind.FineAsh, 58_000, MicroRelief.RoughnessOf(ripple, 0), ripple);
+            }
+
             int bumps = Bumps(zMm);
             return new SurfaceSample(SurfaceKind.PackedAsh, 20_000, MicroRelief.RoughnessOf(0, bumps), 0);
         }
 
-        /// <summary>Бугры — только на плато.</summary>
-        static int Bumps(long zMm) => MicroRelief.SmoothQ(zMm - ClimbEnd, 0, Blend);
+        /// <summary>Бугры — только на плато за подъёмом.</summary>
+        static int Bumps(long zMm) => MicroRelief.SmoothQ(Math.Min(zMm - ClimbEnd, BumpsEnd - zMm), 0, Blend);
+
+        /// <summary>Бархан: пологий наветренный подъём и крутой подветренный спуск, без изломов.</summary>
+        static long Dune(long z)
+        {
+            if (z <= DuneStart || z >= DuneEnd) return 0;
+            double t = z < DuneCrest
+                ? (z - DuneStart) / (double)(DuneCrest - DuneStart)
+                : 1.0 - (z - DuneCrest) / (double)(DuneEnd - DuneCrest);
+            return (long)(DuneHeight * t * t * (3.0 - 2.0 * t));
+        }
 
         /// <summary>Подъём со сглаженными перегибами: интеграл от плавно нарастающего уклона.</summary>
         static long Climb(long z)

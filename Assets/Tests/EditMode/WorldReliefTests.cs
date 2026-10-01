@@ -47,7 +47,7 @@ namespace Hodba.Tests
                 }
             }
             TestContext.WriteLine($"худший перепад на 5 см: {worstStep} мм, самый большой мелкий рельеф: {worstMicro} мм");
-            Assert.That(worstStep, Is.LessThanOrEqualTo(25), "ступенек нет");
+            Assert.That(worstStep, Is.LessThanOrEqualTo(45), "ступенек нет (склон бархана плюс рябь)");
             Assert.That(worstMicro, Is.LessThanOrEqualTo(150));
         }
 
@@ -72,6 +72,54 @@ namespace Hodba.Tests
             Assert.That(ripple, Is.GreaterThan(n / 20));
             Assert.That(bumps, Is.GreaterThan(n / 20));
             Assert.AreEqual(0, rippleOnCrust, "рябь живёт только на рыхлом");
+        }
+
+        /// <summary>Пустыня — это и огромные плато, и холмистые равнины, и поля барханов.</summary>
+        [Test]
+        public void Desert_HasPlateausHillsAndDunes()
+        {
+            int flat = 0, hills = 0, dunes = 0, n = 0;
+            for (long z = -40_000_000; z < 40_000_000; z += 500_000)
+            for (long x = -40_000_000; x < 40_000_000; x += 500_000)
+            {
+                int field = Dunes.Field(x, z, 3), rolling = Dunes.Rolling(x, z, 3);
+                n++;
+                if (field > 32_000) dunes++;
+                else if (rolling > 32_000) hills++;
+                if (field == 0 && rolling == 0) flat++;
+            }
+            TestContext.WriteLine($"стол {100f * flat / n:0}%, холмы {100f * hills / n:0}%, барханы {100f * dunes / n:0}%");
+            Assert.That(flat, Is.GreaterThan(n / 6), "огромные плато есть");
+            Assert.That(dunes, Is.InRange(n / 10, n * 6 / 10), "барханы есть, но не везде");
+            Assert.That(hills, Is.GreaterThan(n / 20));
+        }
+
+        /// <summary>Барханы — в метры высотой, подветренный склон не круче естественного откоса, и они сыпучие.</summary>
+        [Test]
+        public void Dunes_AreTall_AndNoSteeperThanRepose()
+        {
+            var w = new FlatStub(3);
+            long tallest = 0;
+            double steepest = 0;
+            int checkedDunes = 0;
+            for (long z = -30_000_000; z < 30_000_000; z += 1_300_000)
+            for (long x0 = -30_000_000; x0 < 30_000_000; x0 += 3_100_000)
+            {
+                if (Dunes.Field(x0, z, 3) < 60_000) continue;
+                checkedDunes++;
+                Assert.That(w.SampleSurface(x0, z).Looseness, Is.GreaterThan(45_000), "бархан сыпучий");
+                for (long x = x0; x < x0 + 600_000; x += 1_000)
+                {
+                    tallest = Math.Max(tallest, Dunes.Height(x, z, 3, Dunes.Field(x, z, 3)));
+                    long a = Dunes.Height(x, z, 3, Dunes.Field(x, z, 3));
+                    long b = Dunes.Height(x + 1_000, z, 3, Dunes.Field(x + 1_000, z, 3));
+                    steepest = Math.Max(steepest, Math.Abs(b - a) / 1000.0);
+                }
+            }
+            TestContext.WriteLine($"барханов проверено {checkedDunes}, самый высокий {tallest / 1000.0:0.0} м, самый крутой склон {steepest:0.00}");
+            Assert.That(checkedDunes, Is.GreaterThan(5));
+            Assert.That(tallest, Is.GreaterThan(5_000), "в метры высотой");
+            Assert.That(steepest, Is.LessThan(0.7), "не круче откоса (~33°)");
         }
 
         [Test]
