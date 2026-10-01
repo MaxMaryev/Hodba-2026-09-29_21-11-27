@@ -17,16 +17,18 @@ namespace Hodba.World.Gen
         // Где поля барханов и где холмы — километры.
         const long FieldCell = 6_000_000, RollingCell = 4_000_000;
 
-        // Барханы: две длины волны, смешанные по месту, — длина «гуляет» без разрыва фазы.
+        // Барханы: одна волна, а её длина и изгиб гребней меняются медленным сдвигом фазы.
+        // (Смешивать две волны разной длины нельзя: где поровну, гребни одной гасят другую.)
         // Чем выше бархан, тем длиннее волна: подветренный склон (30% длины) не круче откоса.
-        const long LengthA = 300_000, LengthB = 450_000;
+        const long Length = 380_000;
         const long Rise = One * 7 / 10; // наветренный склон — 70% длины, подветренный — 30%
-        const long WarpCell = 900_000, WarpMm = 80_000;
+        const long BendCell = 900_000, BendMm = 80_000;       // изгиб гребней
+        const long StretchCell = 3_000_000, StretchMm = 400_000; // длина волны гуляет на ±25%
         const long SegmentCell = 350_000;
         const long AmpCell = 2_000_000, MinMm = 6_000, MaxMm = 30_000;
 
         // Гигантские дюны (драа): пологие валы на километры, на их спинах — барханы.
-        const long DraaA = 2_400_000, DraaB = 3_600_000;
+        const long Draa = 3_000_000;
         const long DraaRise = One * 6 / 10;
         const long DraaMinMm = 15_000, DraaMaxMm = 60_000;
 
@@ -52,22 +54,20 @@ namespace Hodba.World.Gen
 
             if (field <= 0) return h;
 
-            long warp = (long)ValueNoise.Fbm(x, z, WarpCell, 2, seed + 311) * WarpMm >> 16;
-            long u = x + warp;
-            int mix = ValueNoise.Sample(x, z, 900_000, seed + 321);
-            long wave = (MicroRelief.Wave(u, LengthA, Rise) * (One - mix)
-                         + MicroRelief.Wave(u + 37_000, LengthB, Rise) * mix) >> 16;
+            long bend = (long)ValueNoise.Fbm(x, z, BendCell, 2, seed + 311) * BendMm >> 16;
+            long stretch = (long)ValueNoise.Fbm(x, z, StretchCell, 2, seed + 321) * StretchMm >> 16;
+            long u = x + bend + stretch;
+            long wave = MicroRelief.Wave(u, Length, Rise);
 
-            // Гребень рвётся на отдельные барханы, между ними — проходы.
-            int segment = MicroRelief.SmoothQ(ValueNoise.Sample(u, z, SegmentCell, seed + 331), One / 4, One * 3 / 4);
+            // Гребень изредка рвётся на отдельные барханы — между ними проходы.
+            int segment = MicroRelief.SmoothQ(ValueNoise.Sample(u, z, SegmentCell, seed + 331), One * 12 / 100, One * 45 / 100);
             long amp = MinMm + ((MaxMm - MinMm) * ValueNoise.Sample(x, z, AmpCell, seed + 341) >> 16);
 
             long dune = wave * segment >> 16;
             dune = dune * amp >> 16;
 
             // Под барханами — гигантский вал: пески поднимаются на десятки метров, барханы сидят на его спине.
-            long draaWave = (MicroRelief.Wave(u, DraaA, DraaRise) * (One - mix)
-                             + MicroRelief.Wave(u + 900_000, DraaB, DraaRise) * mix) >> 16;
+            long draaWave = MicroRelief.Wave(u, Draa, DraaRise);
             long draaAmp = DraaMinMm + ((DraaMaxMm - DraaMinMm) * ValueNoise.Sample(x, z, 5_000_000, seed + 371) >> 16);
             long draa = draaWave * draaAmp >> 16;
 
