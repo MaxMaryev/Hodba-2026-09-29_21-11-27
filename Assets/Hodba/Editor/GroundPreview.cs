@@ -29,6 +29,7 @@ namespace Hodba.Editor
             public float Pitch;
             public float Yaw;
             public float OriginX;
+            public float Wind; // сила позёмки, 0 — штиль
         }
 
         [MenuItem("Hodba/Debug/Ground Preview", priority = 201)]
@@ -52,9 +53,9 @@ namespace Hodba.Editor
             var sun = sunGo.AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.shadows = LightShadows.Soft;
-            sun.color = new Color(1f, 0.85f, 0.7f);
-            if (config.skyMaterial != null) RenderSettings.skybox = config.skyMaterial;
-            RenderSettings.ambientLight = new Color(0.45f, 0.42f, 0.4f);
+            // Свет, небо и дымка — как в игре, от высоты солнца; облака стоят на месте.
+            var sky = new SkyController(sun, config.skyMaterial);
+            DustShadows.Push(config, Vector2.zero);
 
             var camGo = new GameObject("Eyes");
             var cam = camGo.AddComponent<Camera>();
@@ -75,6 +76,10 @@ namespace Hodba.Editor
                 new Shot { Name = "бугры, низкое солнце", Z = 260f, SunElevation = 6f, Pitch = 28f, Yaw = 10f },
                 new Shot { Name = "бугры, полдень", Z = 260f, SunElevation = 65f, Pitch = 28f, Yaw = 10f },
                 new Shot { Name = "к горизонту через все кольца", Z = 260f, SunElevation = 12f, Pitch = 3f, Yaw = 10f },
+                new Shot { Name = "к горизонту спиной к солнцу", Z = 400f, SunElevation = 8f, Pitch = 3f, Yaw = 200f },
+                new Shot { Name = "бархан против солнца, рассвет", Z = 300f, SunElevation = 4f, Pitch = 2f, Yaw = 20f },
+                new Shot { Name = "позёмка в порыв, рябь, низкое солнце", Z = 95f, SunElevation = 8f, Pitch = 18f, Yaw = 60f, Wind = 1f },
+                new Shot { Name = "позёмка на бархане против ветра", Z = 340f, SunElevation = 10f, Pitch = 6f, Yaw = 270f, Wind = 1f },
                 new Shot { Name = "корка, вдаль", Z = 30f, SunElevation = 12f, Pitch = 8f, Yaw = 10f },
                 new Shot { Name = "рябь вдоль ветра, пологий ракурс", Z = 95f, SunElevation = 6f, Pitch = 6f, Yaw = 90f },
                 new Shot { Name = "перенос центра: 512 м", Z = 95f, SunElevation = 6f, Pitch = 28f, Yaw = 90f, OriginX = 512f },
@@ -97,9 +102,13 @@ namespace Hodba.Editor
                     using (var ground = new ClipmapTerrain(world, origin, config, config.groundMaterial))
                     {
                         // Солнце сбоку-спереди: низкое солнце вытягивает тени от каждого бугорка.
-                        sunGo.transform.rotation = Quaternion.Euler(s.SunElevation, 200f, 0f);
                         float h = world.SampleHeightMm(focus) / 1000f;
+                        var sunDirection = -(Quaternion.Euler(s.SunElevation, 200f, 0f) * Vector3.forward);
+                        sky.Apply(s.SunElevation, sunDirection, config, h, 0f);
                         camGo.transform.SetPositionAndRotation(origin.ToLocal(focus, h + config.eyeHeight), Quaternion.Euler(s.Pitch, s.Yaw, 0f));
+                        // Позёмка застыла в кадре: ветер на восток, вокруг глаз; бег струй виден только в Play.
+                        var eye = camGo.transform.position;
+                        Saltation.Push(config, s.Wind, 1f, new Vector2(1f, 0f), new Vector2(eye.x, eye.z), Vector4.zero, Vector2.zero);
 
                         ground.Tick(focus);
                         cam.targetTexture = rt;

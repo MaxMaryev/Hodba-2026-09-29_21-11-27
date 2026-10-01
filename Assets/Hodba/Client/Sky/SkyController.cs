@@ -24,11 +24,20 @@ namespace Hodba.Client
         static readonly int GlobalSunDir = Shader.PropertyToID("_HodbaSunDir");
         static readonly int GlobalSunColor = Shader.PropertyToID("_HodbaSunColor");
         static readonly int GlobalAmbient = Shader.PropertyToID("_HodbaAmbient");
+        static readonly int GlobalGlow = Shader.PropertyToID("_HodbaGlowColor");
+        static readonly int GlobalFog = Shader.PropertyToID("_HodbaFog");
+        static readonly int GlobalHaze = Shader.PropertyToID("_HodbaHaze");
 
         static readonly Quaternion NightLight = Quaternion.Euler(62f, 200f, 0f);
 
         public readonly Light Sun;
         readonly Material _sky;
+        float _fogLevel;
+        bool _hasFogLevel;
+        float _raisedDust;
+
+        /// <summary>Пыль, поднятая ветром, 0..1 (сила × порыв): дымка гуще и жмётся к земле.</summary>
+        public void SetRaisedDust(float amount) => _raisedDust = Mathf.Clamp01(amount);
 
         public SkyController(Light sun, Material sky)
         {
@@ -41,9 +50,13 @@ namespace Hodba.Client
             RenderSettings.ambientMode = AmbientMode.Trilight;
         }
 
-        public void Tick(SkyClock clock, FieldConfig config)
+        /// <param name="groundY">Высота земли под путником (локальная): к ней подтягивается приземный слой дымки.</param>
+        public void Tick(SkyClock clock, FieldConfig config, float groundY, float dt) =>
+            Apply(clock.Elevation, clock.SunDirection, config, groundY, dt);
+
+        /// <summary>Небо и свет для заданного солнца. dt ≤ 0 — слой дымки сразу на высоте groundY.</summary>
+        public void Apply(float el, Vector3 sunDirection, FieldConfig config, float groundY, float dt)
         {
-            float el = clock.Elevation;
             float t = Palette.ToGradientTime(el, config.elevationMin, config.elevationMax);
 
             Color zenith = config.skyZenith.Evaluate(t);
@@ -58,7 +71,7 @@ namespace Hodba.Client
             float sunI = Mathf.Max(0f, config.sunIntensity.Evaluate(el));
             if (el > -3f)
             {
-                Sun.transform.rotation = Quaternion.LookRotation(-clock.SunDirection);
+                Sun.transform.rotation = Quaternion.LookRotation(-sunDirection);
                 Sun.color = sunColor;
                 Sun.intensity = sunI;
                 Sun.shadows = sunI > 0.02f ? LightShadows.Soft : LightShadows.None;
@@ -72,20 +85,27 @@ namespace Hodba.Client
             }
             Sun.shadowStrength = config.shadowStrength;
 
+            float fogDensity = Mathf.Max(0f, config.fogDensity.Evaluate(el));
             RenderSettings.fogColor = fog;
-            RenderSettings.fogDensity = Mathf.Max(0f, config.fogDensity.Evaluate(el));
+            RenderSettings.fogDensity = fogDensity;
             RenderSettings.ambientSkyColor = ambSky;
             RenderSettings.ambientEquatorColor = ambEq;
             RenderSettings.ambientGroundColor = ambGround;
             RenderSettings.ambientProbe = Hemisphere(ambSky, ambEq, ambGround);
 
+            // Слой дымки догоняет землю медленно: поднялся на бархан — низина внизу осталась в дымке.
+            if (!_hasFogLevel || dt <= 0f) _fogLevel = groundY;
+            else _fogLevel += (groundY - _fogLevel) * (1f - Mathf.Exp(-dt / Mathf.Max(0.1f, config.fogLevelLag)));
+            _hasFogLevel = true;
+
+            Color skySun = sunColor * Mathf.Clamp01((el + 2f) / 4f);
             if (_sky != null)
             {
                 _sky.SetColor(ZenithId, zenith);
                 _sky.SetColor(HorizonId, horizon);
                 _sky.SetColor(HazeId, fog);
-                _sky.SetColor(SunColorId, sunColor * Mathf.Clamp01((el + 2f) / 4f));
-                _sky.SetVector(SunDirId, clock.SunDirection);
+                _sky.SetColor(SunColorId, skySun);
+                _sky.SetVector(SunDirId, sunDirection);
                 _sky.SetFloat(SunSizeId, config.sunDiscSize);
                 _sky.SetFloat(SunGlowId, config.sunGlow);
                 _sky.SetFloat(HazeHeightId, config.hazeHeight);
@@ -93,9 +113,17 @@ namespace Hodba.Client
                 _sky.SetFloat(StarsId, config.starBrightness * Mathf.Clamp01((-5f - el) / 8f));
             }
 
-            Shader.SetGlobalVector(GlobalSunDir, clock.SunDirection);
+            Shader.SetGlobalVector(GlobalSunDir, sunDirection);
             Shader.SetGlobalColor(GlobalSunColor, el > -3f ? sunColor * sunI : config.nightLightColor * Sun.intensity);
             Shader.SetGlobalColor(GlobalAmbient, ambEq);
+            // Дымка над землёй — та же, что в небе у горизонта: ореол и сдвиг цвета к солнцу и от него.
+            Shader.SetGlobalColor(GlobalGlow, skySun * config.sunGlow);
+            // Поднятая пыль: дымка гуще, слой тоньше и сильнее зависит от высоты — основания барханов тонут.
+            float raised = _raisedDust * config.dustRaise;
+            float layerHeight = Mathf.Max(1f, config.fogLayerHeight * (1f - 0.4f * Mathf.Clamp01(raised)));
+            Shader.SetGlobalVector(GlobalFog, new Vector4(fogDensity * (1f + raised), 1f / layerHeight,
+                config.fogLayerBase * (1f - 0.5f * Mathf.Clamp01(raised)), _fogLevel));
+            Shader.SetGlobalVector(GlobalHaze, new Vector4(config.hazeForward, config.hazeAway, Mathf.Max(1f, config.fogValleyBoost), 0f));
         }
 
         /// <summary>Рассеянный свет: небо сверху, горизонт по кругу, земля снизу.</summary>

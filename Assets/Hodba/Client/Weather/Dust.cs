@@ -4,23 +4,28 @@ using UnityEngine.Rendering;
 namespace Hodba.Client
 {
     /// <summary>
-    /// Пылинки в воздухе вокруг глаз и пепельные полосы, стелющиеся у ног в порыв.
-    /// Против низкого солнца пылинки светятся — шейдер Hodba/Dust.
+    /// Пылинки в воздухе вокруг глаз и песчинки, прыгающие у ног, когда песок бежит (позёмка рисуется на земле, см. Saltation).
+    /// Против низкого солнца пылинки светятся — шейдер Hodba/Dust. Вплотную к глазу частицы гаснут:
+    /// пылинка в 20 см от глаза была бы огромным мягким пятном.
     /// </summary>
     public sealed class Dust
     {
+        /// <summary>Самая крупная частица на экране, доля его высоты.</summary>
+        const float MaxScreenSize = 0.004f;
+
         readonly ParticleSystem _motes;
-        readonly ParticleSystem _drift;
+        readonly ParticleSystem _spray;
         ParticleSystem.Particle[] _buffer = new ParticleSystem.Particle[0];
 
         public Dust(FieldConfig config, FloatingOrigin origin)
         {
             _motes = CreateMotes(config);
-            _drift = CreateDrift(config);
-            origin.Shifted += d => { Shift(_motes, d); Shift(_drift, d); };
+            _spray = CreateSpray(config);
+            origin.Shifted += d => { Shift(_motes, d); Shift(_spray, d); };
         }
 
-        public void Tick(Camera camera, Wind wind, FieldConfig config, float groundY)
+        /// <param name="looseness">Рыхлость земли под путником, 0..1.</param>
+        public void Tick(Camera camera, Wind wind, FieldConfig config, float groundY, float looseness)
         {
             var eye = camera.transform.position;
 
@@ -31,15 +36,17 @@ namespace Hodba.Client
             mv.z = new ParticleSystem.MinMaxCurve(wind.Velocity.z * 0.3f, wind.Velocity.z * 0.4f);
             mv.y = new ParticleSystem.MinMaxCurve(-0.02f, 0.05f);
 
-            // Полосы рождаются с наветренной стороны и проносятся мимо.
-            var upwind = -wind.Velocity.normalized * 8f;
-            _drift.transform.position = new Vector3(eye.x + upwind.x, groundY + 0.05f, eye.z + upwind.z);
-            var dv = _drift.velocityOverLifetime;
-            dv.x = new ParticleSystem.MinMaxCurve(wind.Velocity.x * 0.9f, wind.Velocity.x * 1.2f);
-            dv.z = new ParticleSystem.MinMaxCurve(wind.Velocity.z * 0.9f, wind.Velocity.z * 1.2f);
-            dv.y = new ParticleSystem.MinMaxCurve(0f, 0.12f);
-            var de = _drift.emission;
-            de.rateOverTime = config.driftRate * wind.Gust * wind.Gust * wind.Strength;
+            // Песчинки рождаются чуть с наветренной стороны и прыгают по ветру — столько, сколько песка бежит по земле.
+            var upwind = -wind.Velocity.normalized * 3f;
+            _spray.transform.position = new Vector3(eye.x + upwind.x, groundY + 0.01f, eye.z + upwind.z);
+            var sv = _spray.velocityOverLifetime;
+            sv.x = new ParticleSystem.MinMaxCurve(wind.Velocity.x * 1.0f, wind.Velocity.x * 1.4f);
+            sv.z = new ParticleSystem.MinMaxCurve(wind.Velocity.z * 1.0f, wind.Velocity.z * 1.4f);
+            sv.y = new ParticleSystem.MinMaxCurve(0f, 0f);
+            var se = _spray.emission;
+            // По корке песок не бежит — как и позёмка в шейдере земли.
+            float loose = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.7f, looseness));
+            se.rateOverTime = config.sprayRate * Saltation.Intensity(wind, config) * Mathf.Lerp(0.25f, 1f, wind.Gust) * loose;
         }
 
         ParticleSystem CreateMotes(FieldConfig config)
@@ -50,7 +57,7 @@ namespace Hodba.Client
             main.prewarm = true;
             main.startLifetime = new ParticleSystem.MinMaxCurve(10f, 16f);
             main.startSpeed = 0f;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.012f, 0.045f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.002f, 0.008f);
             main.startColor = new Color(1f, 1f, 1f, 0.35f);
             main.maxParticles = Mathf.Max(10, config.dustCount);
             main.simulationSpace = ParticleSystemSimulationSpace.World;
@@ -61,7 +68,7 @@ namespace Hodba.Client
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(config.dustBox, 10f, config.dustBox);
+            shape.scale = new Vector3(config.dustBox, 4f, config.dustBox);
 
             var vel = ps.velocityOverLifetime;
             vel.enabled = true;
@@ -78,21 +85,27 @@ namespace Hodba.Client
             return ps;
         }
 
-        ParticleSystem CreateDrift(FieldConfig config)
+        /// <summary>
+        /// Сальтация: песчинка подскакивает на 5–25 см, летит по ветру и падает. Штрих 1–3 см толщиной,
+        /// вытянутый скоростью до ~0,5 м, — как песчинку видит глаз на лету.
+        /// </summary>
+        ParticleSystem CreateSpray(FieldConfig config)
         {
-            var ps = NewSystem("Ash Drift", config.driftMaterial != null ? config.driftMaterial : config.dustMaterial,
+            var ps = NewSystem("Sand Spray", config.driftMaterial != null ? config.driftMaterial : config.dustMaterial,
                 ParticleSystemRenderMode.Stretch);
             var r = ps.GetComponent<ParticleSystemRenderer>();
-            r.velocityScale = 0.18f;
-            r.lengthScale = 2.5f;
+            r.velocityScale = 0.05f;
+            r.lengthScale = 1f;
+            r.maxParticleSize = MaxScreenSize * 4f; // штрих длинный: ограничиваем ширину, а не длину
 
             var main = ps.main;
             main.loop = true;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(2f, 3.5f);
-            main.startSpeed = 0f;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.25f, 0.7f);
-            main.startColor = new Color(1f, 1f, 1f, 0.12f);
-            main.maxParticles = 400;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.9f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.4f); // вверх: форма повёрнута
+            main.gravityModifier = 0.35f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.022f);
+            main.startColor = new Color(1f, 1f, 1f, 0.55f);
+            main.maxParticles = 800;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
 
             var em = ps.emission;
@@ -101,13 +114,15 @@ namespace Hodba.Client
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(28f, 0.15f, 28f);
+            shape.rotation = new Vector3(-90f, 0f, 0f); // коробка испускает вдоль своей Z — разворачиваем вверх
+            shape.scale = new Vector3(20f, 20f, 0.02f);
+            shape.randomDirectionAmount = 0.15f;
 
             var vel = ps.velocityOverLifetime;
             vel.enabled = true;
             vel.space = ParticleSystemSimulationSpace.World;
 
-            FadeInOut(ps, 0.2f, 0.7f);
+            FadeInOut(ps, 0.1f, 0.75f);
             ps.Play();
             return ps;
         }
@@ -123,6 +138,7 @@ namespace Hodba.Client
             r.shadowCastingMode = ShadowCastingMode.Off;
             r.receiveShadows = false;
             r.sortMode = ParticleSystemSortMode.None;
+            r.maxParticleSize = MaxScreenSize;
             return ps;
         }
 

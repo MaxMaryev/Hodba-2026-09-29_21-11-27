@@ -95,6 +95,32 @@ namespace Hodba.Client
         [Range(0.1f, 2f)] public float horizonCurve = 0.45f;
         public float starBrightness = 1.4f;
 
+        [Header("Дымка и тени пыльных облаков")]
+        [Tooltip("Насколько дымка светлее и теплее в сторону солнца (и в небе у горизонта, и над землёй).")]
+        [Range(0f, 1f)] public float hazeForward = 0.35f;
+        [Tooltip("Насколько дымка темнее в сторону от солнца.")]
+        [Range(0f, 0.5f)] public float hazeAway = 0.12f;
+        [Tooltip("Толщина приземного слоя дымки, м: в низинах гуще, на возвышенностях реже.")]
+        public float fogLayerHeight = 25f;
+        [Tooltip("Доля дымки, не зависящая от высоты.")]
+        [Range(0f, 1f)] public float fogLayerBase = 0.45f;
+        [Tooltip("Во сколько раз в низине гуще, не больше.")]
+        public float fogValleyBoost = 2.5f;
+        [Tooltip("За сколько секунд уровень слоя догоняет землю под путником: поднялся на бархан — низина осталась в дымке.")]
+        public float fogLevelLag = 45f;
+        [Tooltip("Шум облаков (создаёт Hodba ▸ Setup Field). Пусто — теней нет.")]
+        public Texture2D dustShadowTexture;
+        [Range(0f, 1f)] public float dustShadowStrength = 0.35f;
+        [Tooltip("Доля неба в облаках.")]
+        [Range(0f, 1f)] public float dustShadowCoverage = 0.4f;
+        [Range(0.01f, 0.5f)] public float dustShadowSoftness = 0.12f;
+        [Tooltip("Высота облаков, м: на низком солнце тень ложится далеко от облака.")]
+        public float dustShadowHeight = 400f;
+        [Tooltip("Тайл шума, м; округляется до степени двойки, чтобы делить 4096.")]
+        public float dustShadowTile = 2048f;
+        [Tooltip("Скорость облаков относительно ветра у земли.")]
+        public float dustShadowSpeed = 1.6f;
+
         [Header("Ослепление и цвет")]
         public float glareExposure = 1.1f;
         public float glareBloom = 2.2f;
@@ -144,7 +170,28 @@ namespace Hodba.Client
         public float gustPeriod = 9f;
         public int dustCount = 300;
         public float dustBox = 36f;
-        public float driftRate = 30f;
+        [Tooltip("Насколько гуще дымка в сильный порыв: ветер поднимает пыль.")]
+        [Range(0f, 2f)] public float dustRaise = 0.6f;
+
+        [Header("Позёмка: песок бежит по земле")]
+        [Tooltip("Струи и фронты порыва (создаёт Hodba ▸ Setup Field). Пусто — позёмки нет.")]
+        public Texture2D saltationTexture;
+        [Tooltip("Сила ветра (0..1), с которой песок начинает бежать.")]
+        [Range(0f, 1f)] public float saltationThreshold = 0.35f;
+        [Range(0f, 2f)] public float saltationStrength = 1f;
+        [Tooltip("Насколько струя закрывает землю.")]
+        [Range(0f, 1f)] public float saltationOpacity = 0.35f;
+        public Color saltationColor = new Color(0.84f, 0.81f, 0.76f);
+        [Tooltip("Тайл мелких струй, м; крупные — в 2,6 раза больше.")]
+        public float saltationTile = 6f;
+        [Tooltip("Скорость струй относительно ветра.")]
+        public float saltationSpeed = 0.8f;
+        [Tooltip("Дальше этого, м, позёмку не видно.")]
+        public float saltationDistance = 60f;
+        [Tooltip("Размер фронтов порыва, м: пятна, которые бегут по пустыне со скоростью ветра.")]
+        public float gustFrontScale = 80f;
+        [Tooltip("Песчинок в секунду у ног в самый сильный порыв.")]
+        public float sprayRate = 240f;
 
         [Header("Звук")]
         [Range(0f, 1f)] public float masterVolume = 0.9f;

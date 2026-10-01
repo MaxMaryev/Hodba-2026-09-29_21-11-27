@@ -39,6 +39,16 @@ namespace Hodba.Editor
         public static Texture2D Variation(string path) => Write(path, 512, 512, (u, v) =>
             new Color(Fbm(u, v, 32, 2, 301), Fbm(u, v, 4, 3, 401), Fbm(u, v, 8, 2, 501), 1f), false, false);
 
+        /// <summary>
+        /// Пыльные облака для теней на земле: тайл ~2 км, пятна от полукилометра до десятков метров.
+        /// Контраст растянут, чтобы порог покрытия в шейдере означал примерно долю неба в облаках.
+        /// </summary>
+        public static Texture2D DustShadow(string path) => Write(path, 256, 256, (u, v) =>
+        {
+            float n = Mathf.Clamp01((Fbm(u, v, 4, 5, 601) - 0.5f) * 2.6f + 0.5f);
+            return new Color(n, n, n, 1f);
+        }, false, false);
+
         /// <summary>Мелкая неровность пепла: ~2 мм на тайл 2 м.</summary>
         public static Texture2D AshNormal(string path)
         {
@@ -108,12 +118,30 @@ namespace Hodba.Editor
             return new Color(1f, 1f, 1f, a);
         }, false, false, TextureWrapMode.Clamp);
 
-        public static Texture2D Streak(string path) => Write(path, 128, 32, (u, v) =>
+        /// <summary>
+        /// Позёмка, координаты по ветру (U — вдоль ветра). Бесшовная, линейная.
+        /// R — нити: тонкие гребни шума, вытянутые вдоль ветра ~8:1; G — где струи есть, а где их рвёт;
+        /// B — крупные пятна для фронтов порыва (шейдер берёт их на своём, гораздо большем тайле).
+        /// </summary>
+        public static Texture2D Saltation(string path) => Write(path, 256, 256, (u, v) =>
         {
-            float x = (u - 0.5f) * 2f, y = (v - 0.5f) * 2f;
-            float a = Mathf.Exp(-x * x * 2.5f) * Mathf.Exp(-y * y * 6f);
-            a *= 0.6f + 0.4f * Fbm(u, v * 0.25f, 8, 2, 61);
-            return new Color(1f, 1f, 1f, a);
+            // Небольшое искривление поперёк — нити сплетаются, а не идут по линейке.
+            float bend = (Fbm(u, v, 4, 2, 701) - 0.5f) * 0.08f;
+            float n1 = TileNoise(u, v + bend, 4, 32, 711), n2 = TileNoise(u, v + bend * 1.7f, 8, 64, 713);
+            float ridge = Mathf.Pow(1f - Mathf.Abs(2f * n1 - 1f), 6f) * 0.7f + Mathf.Pow(1f - Mathf.Abs(2f * n2 - 1f), 6f) * 0.45f;
+            float threads = Mathf.Clamp01(ridge * (0.6f + 0.8f * TileNoise(u, v, 16, 8, 717)));
+            float breakup = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Fbm(u, v, 6, 3, 721) - 0.38f) / 0.3f));
+            float front = Mathf.Clamp01((Fbm(u, v, 4, 3, 731) - 0.5f) * 2.4f + 0.5f);
+            return new Color(threads, breakup, front, 1f);
+        }, false, false);
+
+        /// <summary>Песчинка в полёте: тонкий штрих с чётким краем и сужением к хвосту, без гауссова «облака».</summary>
+        public static Texture2D Grain(string path) => Write(path, 64, 16, (u, v) =>
+        {
+            float across = Mathf.Abs(v - 0.5f) * 2f;
+            float body = 1f - Mathf.SmoothStep(0.45f, 0.75f, across);
+            float taper = Mathf.SmoothStep(0f, 0.25f, u) * (1f - Mathf.SmoothStep(0.6f, 1f, u));
+            return new Color(1f, 1f, 1f, body * taper);
         }, false, false, TextureWrapMode.Clamp);
 
         // ——— общее ———
@@ -213,6 +241,19 @@ namespace Hodba.Editor
             uint h = (uint)(Mathf.FloorToInt(x) * 73856093) ^ (uint)(Mathf.FloorToInt(y) * 19349663) ^ (uint)(seed * 83492791);
             h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15;
             return (h & 0xffffff) / 16777216f;
+        }
+
+        /// <summary>Периодический шум значений с разным числом клеток по осям: вытянутые пятна.</summary>
+        static float TileNoise(float u, float v, int periodU, int periodV, int seed)
+        {
+            float x = u * periodU, y = v * periodV;
+            int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y);
+            float fx = x - x0, fy = y - y0;
+            fx = fx * fx * (3f - 2f * fx);
+            fy = fy * fy * (3f - 2f * fy);
+            float Cell(int cx, int cy) => Hash((cx % periodU + periodU) % periodU, (cy % periodV + periodV) % periodV, seed);
+            float a = Cell(x0, y0), b = Cell(x0 + 1, y0), c = Cell(x0, y0 + 1), d = Cell(x0 + 1, y0 + 1);
+            return Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fy);
         }
 
         /// <summary>Периодический шум значений: period клеток на тайл.</summary>

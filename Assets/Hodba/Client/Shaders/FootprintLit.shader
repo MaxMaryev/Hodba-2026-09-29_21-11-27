@@ -1,5 +1,6 @@
 // След в пепле по-настоящему: цвет с маской и нормали (Т4), освещённые солнцем.
 // На рассвете внутри отпечатка лежит своя тень. Правый след — отражённый левый, касательные это учитывают.
+// Свет и дымка — те же, что у земли (HodbaAtmosphere.hlsl), иначе след выделялся бы пятном.
 Shader "Hodba/FootprintLit"
 {
     Properties
@@ -8,7 +9,8 @@ Shader "Hodba/FootprintLit"
         [NoScaleOffset][Normal] _BumpMap ("След: нормали (Т4 Normal)", 2D) = "bump" {}
         _Strength ("Сила", Range(0, 1)) = 1
         _NormalStrength ("Глубина", Range(0, 2)) = 1
-        _Wrap ("Мягкость света", Range(0, 1)) = 0.3
+        _Wrap ("Мягкость света", Range(0, 1)) = 0.1
+        _Rough ("Шероховатость (как у земли вблизи)", Range(0, 1)) = 0.6
     }
 
     SubShader
@@ -30,9 +32,9 @@ Shader "Hodba/FootprintLit"
             #pragma fragment frag
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
-            #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "HodbaAtmosphere.hlsl"
 
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
             TEXTURE2D(_BumpMap); SAMPLER(sampler_BumpMap);
@@ -41,6 +43,7 @@ Shader "Hodba/FootprintLit"
                 half _Strength;
                 half _NormalStrength;
                 half _Wrap;
+                half _Rough;
             CBUFFER_END
 
             struct Attributes
@@ -61,7 +64,6 @@ Shader "Hodba/FootprintLit"
                 float3 normalWS : TEXCOORD2;
                 float3 tangentWS : TEXCOORD3;
                 float3 bitangentWS : TEXCOORD4;
-                half fogFactor : TEXCOORD5;
             };
 
             Varyings vert(Attributes v)
@@ -76,7 +78,6 @@ Shader "Hodba/FootprintLit"
                 o.bitangentWS = n.bitangentWS;
                 o.uv = v.uv;
                 o.color = v.color;
-                o.fogFactor = ComputeFogFactor(p.positionCS.z);
                 return o;
             }
 
@@ -87,10 +88,12 @@ Shader "Hodba/FootprintLit"
                 float3 n = normalize(i.tangentWS * nt.x + i.bitangentWS * nt.y + i.normalWS * nt.z);
 
                 Light light = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
-                half ndl = saturate((dot(n, light.direction) + _Wrap) / (1.0h + _Wrap));
-                half3 lighting = light.color * (ndl * light.shadowAttenuation * light.distanceAttenuation) + SampleSH(n);
+                float3 V = normalize(GetCameraPositionWS() - i.positionWS);
+                half diffuse = HodbaRoughDiffuse(n, light.direction, V, _Rough, _Wrap);
+                half shade = light.shadowAttenuation * light.distanceAttenuation * HodbaDustShadow(i.positionWS);
+                half3 lighting = light.color * (diffuse * shade) + SampleSH(n);
 
-                half3 color = MixFog(albedo.rgb * lighting, i.fogFactor);
+                half3 color = HodbaApplyFog(albedo.rgb * lighting, i.positionWS);
                 return half4(color, albedo.a * i.color.a * _Strength);
             }
             ENDHLSL

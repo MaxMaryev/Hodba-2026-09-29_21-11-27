@@ -45,7 +45,9 @@ namespace Hodba.Editor
                 var ripples = TextureGen.Ripples(Generated + "/T_Ripples.png");
                 var footprint = TextureGen.Footprint(Generated + "/T_Footprint.png");
                 var dot = TextureGen.SoftDot(Generated + "/T_Dot.png");
-                var streak = TextureGen.Streak(Generated + "/T_Streak.png");
+                var grain = TextureGen.Grain(Generated + "/T_Grain.png");
+                var dustShadow = TextureGen.DustShadow(Generated + "/T_DustShadow.png");
+                var saltation = TextureGen.Saltation(Generated + "/T_Saltation.png");
 
                 EditorUtility.DisplayProgressBar("Hodba", "Материалы", 0.6f);
                 var ground = Mat("M_Ground", "Hodba/Ground", m =>
@@ -61,17 +63,8 @@ namespace Hodba.Editor
                 var sky = Mat("M_Sky", "Hodba/Sky", null);
                 var print = Mat("M_Footprint", "Hodba/Footprint", m => m.SetTexture("_MainTex", footprint));
                 var dust = Mat("M_Dust", "Hodba/Dust", m => m.SetTexture("_MainTex", dot));
-                var drift = Mat("M_Drift", "Hodba/Dust", m =>
-                {
-                    m.SetTexture("_MainTex", streak);
-                    m.SetFloat("_Scatter", 1.5f);
-                });
-                var stone = Mat("M_Stone", "Universal Render Pipeline/Lit", m =>
-                {
-                    m.SetColor("_BaseColor", new Color(0.25f, 0.235f, 0.22f));
-                    m.SetFloat("_Smoothness", 0.12f);
-                    m.enableInstancing = true;
-                });
+                var drift = SprayMaterial(grain);
+                var stone = GenericStone();
 
                 var volume = SetupVolume();
 
@@ -88,6 +81,8 @@ namespace Hodba.Editor
                 config.dustMaterial = dust;
                 config.driftMaterial = drift;
                 if (config.stoneMaterial == null) config.stoneMaterial = stone;
+                config.dustShadowTexture = dustShadow;
+                config.saltationTexture = saltation;
                 config.volumeProfile = volume;
                 // Шейдер век грузится кодом — ссылка из конфига не даёт сборке его выбросить.
                 config.eyeShader = Shader.Find("Hidden/Hodba/Eye");
@@ -124,6 +119,58 @@ namespace Hodba.Editor
             EditorUtility.SetDirty(ground);
             AssetDatabase.SaveAssets();
         }
+
+        // Узкое обновление света и ветра: тени пыльных облаков, позёмка и песчинки, микротени земли,
+        // камни на Hodba/Rock. Сцену не трогает.
+        [MenuItem("Hodba/Debug/Apply Atmosphere and Rock Light", priority = 203)]
+        public static void ApplyAtmosphere()
+        {
+            Directory.CreateDirectory(Generated);
+            var config = AssetDatabase.LoadAssetAtPath<FieldConfig>(ConfigPath);
+            if (config == null) throw new System.InvalidOperationException("FieldConfig не найден — запусти Hodba ▸ Setup Field.");
+            try
+            {
+                EditorUtility.DisplayProgressBar("Hodba", "Тени пыльных облаков", 0.1f);
+                config.dustShadowTexture = TextureGen.DustShadow(Generated + "/T_DustShadow.png");
+                EditorUtility.DisplayProgressBar("Hodba", "Позёмка и песчинки", 0.2f);
+                config.saltationTexture = TextureGen.Saltation(Generated + "/T_Saltation.png");
+                config.driftMaterial = SprayMaterial(TextureGen.Grain(Generated + "/T_Grain.png"));
+                var stone = GenericStone();
+                if (config.stoneMaterial == null) config.stoneMaterial = stone;
+
+                EditorUtility.DisplayProgressBar("Hodba", "Микротени земли и камни", 0.4f);
+                FieldArt.AssignLook(config, stone);
+                EditorUtility.SetDirty(config);
+
+                // Превью земли берёт текстуры прямо из материала, без Bootstrap.
+                var ground = config.groundMaterial;
+                if (ground != null && config.ashAlbedo != null && config.packedAlbedo != null)
+                {
+                    ground.SetTexture("_AshAlbedo", config.ashAlbedo);
+                    ground.SetTexture("_PackedAlbedo", config.packedAlbedo);
+                    EditorUtility.SetDirty(ground);
+                }
+                AssetDatabase.SaveAssets();
+                Debug.Log($"Hodba: свет обновлён. Пепел {AssetDatabase.GetAssetPath(config.ashAlbedo)}, корка {AssetDatabase.GetAssetPath(config.packedAlbedo)}.");
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
+        }
+
+        // Песчинки у ног: тонкий штрих, свечение против солнца слабее, чем у пылинок.
+        static Material SprayMaterial(Texture2D grain) => Mat("M_Drift", "Hodba/Dust", m =>
+        {
+            m.SetTexture("_MainTex", grain);
+            m.SetFloat("_Scatter", 1.5f);
+        });
+
+        static Material GenericStone() => Mat("M_Stone", "Hodba/Rock", m =>
+        {
+            m.SetColor("_BaseColor", new Color(0.25f, 0.235f, 0.22f));
+            m.enableInstancing = true;
+        });
 
         [MenuItem("Hodba/Reset Walker (start from zero)", priority = 20)]
         public static void ResetWalker()

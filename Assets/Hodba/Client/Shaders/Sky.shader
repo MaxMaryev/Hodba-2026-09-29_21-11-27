@@ -1,5 +1,6 @@
 // Небо пепельного мира. Выцветший зенит, пыльная дымка у горизонта того же цвета, что туман над землёй,
 // диск солнца с ореолом. Ночью — звёзды чужого неба.
+// Дымка и ореол — те же функции, что у тумана над землёй (HodbaAtmosphere.hlsl): горизонт без шва.
 Shader "Hodba/Sky"
 {
     Properties
@@ -29,6 +30,7 @@ Shader "Hodba/Sky"
             #pragma vertex vert
             #pragma fragment frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "HodbaAtmosphere.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 half4 _ZenithColor;
@@ -69,14 +71,14 @@ Shader "Hodba/Sky"
 
                 half3 sky = lerp(_HorizonColor.rgb, _ZenithColor.rgb, pow(saturate(y), _HorizonCurve));
                 half haze = exp(-max(y, 0.0) / _HazeHeight);
-                sky = lerp(sky, _HazeColor.rgb, haze);
+                sky = lerp(sky, HodbaHazeColor(_HazeColor.rgb, d), haze);
 
                 // Солнце: диск и ореол. В дымке у горизонта диск тускнеет и краснеет вместе с цветом солнца.
                 float3 sunDir = normalize(_SunDir.xyz);
                 float cosA = dot(d, sunDir);
                 float sunCos = cos(radians(_SunSize));
                 half disc = saturate((cosA - sunCos) / max(1e-5, (1.0 - sunCos) * 0.25));
-                half glow = pow(saturate(cosA), 8.0) * 0.18 + pow(saturate(cosA), 64.0) * 0.5 + pow(saturate(cosA), 900.0) * 1.5;
+                half glow = HodbaSunGlow(cosA);
                 half aboveHorizon = saturate(y * 40.0 + 0.5);
                 sky += _SunColor.rgb * (disc * 30.0 * aboveHorizon * (1.0 - haze * 0.6) + glow * _SunGlow);
 

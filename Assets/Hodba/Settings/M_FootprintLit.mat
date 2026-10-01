@@ -35,7 +35,7 @@ Material:
     m_Floats:
     - _NormalStrength: 1
     - _Strength: 1
-    - _Wrap: 0.3
+    - _Wrap: 0.1
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

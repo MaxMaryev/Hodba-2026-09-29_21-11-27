@@ -4,6 +4,8 @@
 // Где пепел, а где слежавшаяся корка, решает мир (r — рыхлость, g — рябь, b — неровность),
 // чтобы земля выглядела так, как её чувствуют ноги. Рябь-нормаль — там, где рябь есть в мире.
 // Все тайлы делят 4096 м — иначе при переносе плавающего центра рисунок прыгнет.
+// Свет шершавый (Орен — Найяр), в зерне и трещинах — микротени из альфы альбедо (AO);
+// дымка и тени пыльных облаков — общие с небом и камнями (HodbaAtmosphere.hlsl); там же позёмка — песок, бегущий по ветру.
 Shader "Hodba/Ground"
 {
     Properties
@@ -34,7 +36,10 @@ Shader "Hodba/Ground"
         _FadePxStart ("Полные детали: пикселей на тайл", Float) = 64
         _FadePxEnd ("Средний цвет: пикселей на тайл", Float) = 8
         _RipplePeriods ("Гребней ряби на тайл", Float) = 40
-        _Wrap ("Мягкость света", Range(0, 1)) = 0.3
+        _Wrap ("Мягкость света", Range(0, 1)) = 0.1
+        _RoughNear ("Шероховатость вблизи", Range(0, 1)) = 0.6
+        _RoughFar ("Шероховатость вдали (зерна уже не видно)", Range(0, 1)) = 0.9
+        _AOStrength ("Микротени (альфа альбедо)", Range(0, 1)) = 1
     }
 
     SubShader
@@ -66,6 +71,9 @@ Shader "Hodba/Ground"
             float _FadePxEnd;
             float _RipplePeriods;
             half _Wrap;
+            half _RoughNear;
+            half _RoughFar;
+            half _AOStrength;
         CBUFFER_END
 
         // Кольцо — на каждый вызов отрисовки свои (MaterialPropertyBlock).
@@ -154,9 +162,9 @@ Shader "Hodba/Ground"
             #pragma fragment frag
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
-            #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "HodbaAtmosphere.hlsl"
 
             TEXTURE2D(_AshAlbedo);     SAMPLER(sampler_AshAlbedo);
             TEXTURE2D(_PackedAlbedo);  SAMPLER(sampler_PackedAlbedo);
@@ -164,8 +172,6 @@ Shader "Hodba/Ground"
             TEXTURE2D(_RippleNormal);  SAMPLER(sampler_RippleNormal);
             TEXTURE2D(_MacroTex);      SAMPLER(sampler_MacroTex);
             TEXTURE2D(_VariationTex);  SAMPLER(sampler_VariationTex);
-
-            float4 _HodbaOriginMod;
 
             struct Attributes
             {
@@ -177,7 +183,6 @@ Shader "Hodba/Ground"
                 float4 positionCS : SV_POSITION;
                 float3 positionWS : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
-                half fogFactor : TEXCOORD2;
                 half3 surface : TEXCOORD3;
             };
 
@@ -188,7 +193,6 @@ Shader "Hodba/Ground"
                 o.positionWS = g.positionWS;
                 o.positionCS = TransformWorldToHClip(g.positionWS);
                 o.normalWS = g.normalWS;
-                o.fogFactor = ComputeFogFactor(o.positionCS.z);
                 o.surface = g.surface;
                 return o;
             }
@@ -204,25 +208,26 @@ Shader "Hodba/Ground"
             }
 
             // Производные исходного UV вычисляются до всех веток и разрывов индекса варианта.
-            half3 SampleNoTile(TEXTURE2D_PARAM(tex, smp), float2 uv, float v,
-                float2 dx, float2 dy, half3 mean, out half weight)
+            // rgb — цвет, a — микротени (AO): варианты смешиваются вместе.
+            half4 SampleNoTile(TEXTURE2D_PARAM(tex, smp), float2 uv, float v,
+                float2 dx, float2 dy, half4 mean, out half weight)
             {
                 float index = floor(v);
                 float width = max((float)_VariantBlend, 0.05);
                 float t = saturate((frac(v) - 0.5) / width + 0.5);
                 weight = smoothstep(0.0, 1.0, t);
-                half3 sampled = mean;
+                half4 sampled = mean;
                 UNITY_BRANCH
                 if (t <= 0.0)
-                    sampled = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index), dx, dy).rgb;
+                    sampled = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index), dx, dy);
                 else if (t >= 1.0)
-                    sampled = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index + 1.0), dx, dy).rgb;
+                    sampled = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index + 1.0), dx, dy);
                 else
                 {
-                    half3 a = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index), dx, dy).rgb;
-                    half3 b = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index + 1.0), dx, dy).rgb;
+                    half4 a = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index), dx, dy);
+                    half4 b = SAMPLE_TEXTURE2D_GRAD(tex, smp, uv + VariantOffset(index + 1.0), dx, dy);
                     // Смещение по яркости затухает на краях окна: ветки остаются непрерывными.
-                    float brightnessDifference = dot(a - b, half3(0.2126h, 0.7152h, 0.0722h));
+                    float brightnessDifference = dot(a.rgb - b.rgb, half3(0.2126h, 0.7152h, 0.0722h));
                     weight = smoothstep(0.0, 1.0, saturate(t - 0.1 * brightnessDifference * (4.0 * t * (1.0 - t)) / width));
                     half variance = weight * weight + (1.0h - weight) * (1.0h - weight);
                     sampled = mean + (lerp(a, b, weight) - mean) * rsqrt(variance);
@@ -275,31 +280,36 @@ Shader "Hodba/Ground"
                 half macro = SAMPLE_TEXTURE2D(_MacroTex, sampler_MacroTex, wp / _MacroTile).r;
                 macro = saturate((macro - 0.5h) * _MacroContrast + 0.5h);
 
+                // Микротени — относительно средней затенённости тайла: общая яркость та же, что без них,
+                // вдали их нет, и следы (без AO) не выделяются пятном.
                 half3 ash = 0.0h, packed = 0.0h;
+                half ashAO = 1.0h, packedAO = 1.0h;
                 UNITY_BRANCH
                 if (ashness > 0.0h)
                 {
-                    half3 mean = SAMPLE_TEXTURE2D_LOD(_AshAlbedo, sampler_AshAlbedo, float2(0.5, 0.5), 16.0).rgb;
+                    half4 mean = SAMPLE_TEXTURE2D_LOD(_AshAlbedo, sampler_AshAlbedo, float2(0.5, 0.5), 16.0);
                     half visibility = DetailVisibility(ashTile, fw);
-                    half3 detail = mean;
+                    half4 detail = mean;
                     UNITY_BRANCH
                     if (visibility > 0.0h)
                         detail = SampleNoTile(TEXTURE2D_ARGS(_AshAlbedo, sampler_AshAlbedo), wp / ashTile, variant,
                             dx / ashTile, dy / ashTile, mean, ashWeight);
-                    ash = Detail(max(0.0h, mean + (detail - mean) * (detailScale * visibility)), _AshColor.rgb);
+                    ash = Detail(max(0.0h, mean.rgb + (detail.rgb - mean.rgb) * (detailScale * visibility)), _AshColor.rgb);
+                    ashAO = 1.0h + (detail.a - mean.a) * visibility / max(mean.a, 0.5h);
                 }
                 UNITY_BRANCH
                 if (ashness < 1.0h)
                 {
-                    half3 mean = SAMPLE_TEXTURE2D_LOD(_PackedAlbedo, sampler_PackedAlbedo, float2(0.5, 0.5), 16.0).rgb;
+                    half4 mean = SAMPLE_TEXTURE2D_LOD(_PackedAlbedo, sampler_PackedAlbedo, float2(0.5, 0.5), 16.0);
                     half weight = 0.0h;
                     half visibility = DetailVisibility(packedTile, fw);
-                    half3 detail = mean;
+                    half4 detail = mean;
                     UNITY_BRANCH
                     if (visibility > 0.0h)
                         detail = SampleNoTile(TEXTURE2D_ARGS(_PackedAlbedo, sampler_PackedAlbedo), wp / packedTile, variant,
                             dx / packedTile, dy / packedTile, mean, weight);
-                    packed = Detail(max(0.0h, mean + (detail - mean) * (detailScale * visibility)), _PackedColor.rgb);
+                    packed = Detail(max(0.0h, mean.rgb + (detail.rgb - mean.rgb) * (detailScale * visibility)), _PackedColor.rgb);
+                    packedAO = 1.0h + (detail.a - mean.a) * visibility / max(mean.a, 0.5h);
                 }
                 half mid = variation.g * 2.0h - 1.0h;
                 // На корке зерно тоже есть; его вес плавно входит в вес альбедо пепла.
@@ -307,13 +317,18 @@ Shader "Hodba/Ground"
                 half3 midTint = (1.0h + mid * _MidTint) * (1.0h + half3(1.0h, 0.0h, -1.0h) * (mid * _MidHue));
                 half3 albedo = lerp(packed, ash, ashness) * midTint * lerp(1.0h, 0.85h + 0.3h * macro, _MacroTint);
 
+                // Позёмка: бегущий песок светлее и накрывает рябь и зерно.
+                half salt = HodbaSaltation(i.positionWS, dist, dx, dy, i.surface.r, normalize(i.normalWS));
+                albedo = lerp(albedo, _HodbaSaltationColor.rgb, salt * _HodbaSaltation.w);
+                half buried = 1.0h - 0.8h * salt;
+
                 // Рябь — там, где она есть в мире, и вблизи; вдали только мерцала бы.
-                half rippleAmount = _RippleStrength * saturate(1.0 - dist / _RippleFadeDistance) * i.surface.g;
+                half rippleAmount = _RippleStrength * saturate(1.0 - dist / _RippleFadeDistance) * i.surface.g * buried;
                 float rippleTile = max(_RippleTile, 0.001);
                 float wavelength = rippleTile / max(_RipplePeriods, 1.0);
                 float fx = max(abs(dx.x), abs(dy.x));
                 rippleAmount *= smoothstep(2.0, 6.0, wavelength / max(fx, 0.000001));
-                half grainAmount = _AshNormalStrength * saturate(1.0 - dist / 30.0);
+                half grainAmount = _AshNormalStrength * saturate(1.0 - dist / 30.0) * buried;
                 half3 rn = half3(0.0h, 0.0h, 1.0h), an = half3(0.0h, 0.0h, 1.0h);
                 UNITY_BRANCH
                 if (rippleAmount > 0.0h)
@@ -327,13 +342,21 @@ Shader "Hodba/Ground"
                 float3 B = cross(T, N);
                 float3 n = normalize(N + T * (rn.x + an.x) + B * (rn.y + an.y));
 
+                half ao = lerp(1.0h, lerp(packedAO, ashAO, ashness), _AOStrength);
+
+                // Где нормали зерна уже погасли, поверхность не гладкая, а шершавая на масштабе пикселя.
+                half rough = lerp(_RoughFar, _RoughNear, saturate(1.0 - dist / 30.0));
+                float3 V = normalize(GetCameraPositionWS() - i.positionWS);
+
                 Light light = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
-                half ndl = saturate((dot(n, light.direction) + _Wrap) / (1.0h + _Wrap));
-                half3 direct = light.color * (ndl * light.shadowAttenuation * light.distanceAttenuation);
-                half3 ambient = SampleSH(n);
+                half diffuse = HodbaRoughDiffuse(n, light.direction, V, rough, _Wrap);
+                half shade = light.shadowAttenuation * light.distanceAttenuation
+                    * HodbaMicroShadow(ao, dot(n, light.direction)) * HodbaDustShadow(i.positionWS);
+                half3 direct = light.color * (diffuse * shade);
+                half3 ambient = SampleSH(n) * ao;
 
                 half3 color = albedo * (direct + ambient);
-                color = MixFog(color, i.fogFactor);
+                color = HodbaApplyFog(color, i.positionWS);
                 return half4(color, 1);
             }
             ENDHLSL

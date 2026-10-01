@@ -31,6 +31,16 @@ namespace Hodba.Editor
             AssignTraveler(config);
         }
 
+        /// <summary>Только то, что влияет на свет: камни на Hodba/Rock и альбедо земли с микротенями.</summary>
+        public static void AssignLook(FieldConfig config, Material genericStone)
+        {
+            if (!AssetDatabase.IsValidFolder(Art)) return;
+            Directory.CreateDirectory(Out);
+
+            AssignRocks(config, genericStone);
+            AssignGround(config);
+        }
+
         // ——— камни ———
 
         static void AssignRocks(FieldConfig config, Material genericStone)
@@ -41,8 +51,8 @@ namespace Hodba.Editor
             if (small.Count > 0 && config.stoneMeshes.All(m => m == null)) config.stoneMeshes = small;
             if (big.Count > 0 && config.boulderMeshes.All(m => m == null)) config.boulderMeshes = big;
 
-            var rocks = Lit("M_RocksSmall", "RocksSmall");
-            var boulders = Lit("M_Boulders", "Boulders");
+            var rocks = Rock("M_RocksSmall", "RocksSmall");
+            var boulders = Rock("M_Boulders", "Boulders");
             if (rocks != null && (config.stoneMaterial == null || config.stoneMaterial == genericStone)) config.stoneMaterial = rocks;
             if (boulders != null && config.boulderMaterial == null) config.boulderMaterial = boulders;
             Debug.Log($"Hodba: камней {small.Count}, валунов {big.Count}.");
@@ -116,10 +126,140 @@ namespace Hodba.Editor
 
         static void AssignGround(FieldConfig config)
         {
-            if (config.ashAlbedo == null) config.ashAlbedo = Tex("T1_Ash", "Albedo");
+            config.ashAlbedo = WithMicroShadows(config.ashAlbedo, "T1_Ash");
             if (config.ashNormal == null) config.ashNormal = Tex("T1_Ash", "Normal");
             if (config.rippleNormal == null) config.rippleNormal = Tex("T2_Ripples", "Normal");
-            if (config.packedAlbedo == null) config.packedAlbedo = Tex("T3_Crust", "Albedo");
+            config.packedAlbedo = WithMicroShadows(config.packedAlbedo, "T3_Crust");
+        }
+
+        /// <summary>
+        /// Альбедо пака с микротенями в альфе — вместо пустого поля или исходного альбедо; выбранное руками не трогаем.
+        /// </summary>
+        static Texture2D WithMicroShadows(Texture2D current, string prefix)
+        {
+            var source = Tex(prefix, "Albedo");
+            if (current != null && current != source) return current;
+            return PackMicroShadows(prefix) ?? source;
+        }
+
+        /// <summary>
+        /// Альфа = затенённость пака × впадины по карте высот (высота ниже своей округи ~1 см).
+        /// AO пака у пепла почти пустой (0,95–1), а зерно и трещины видны только в высотах.
+        /// Настройки импорта — как у исходного альбедо, чтобы сжатие и мипы на телефонах совпали.
+        /// </summary>
+        public static Texture2D PackMicroShadows(string prefix)
+        {
+            string albedoPath = $"{Art}/Textures/{prefix}_Albedo.png";
+            string heightPath = $"{Art}/Textures/{prefix}_Height.png";
+            string aoPath = $"{Art}/Textures/{prefix}_AO.png";
+            string outPath = $"{Out}/{prefix}_AlbedoAO.png";
+            if (!File.Exists(albedoPath) || !File.Exists(heightPath)) return null;
+            // AO от прежнего пака не совпадает с новыми высотами (старые трещины впечатались бы в новую корку) — берём только свежий.
+            if (File.Exists(aoPath) && File.GetLastWriteTimeUtc(aoPath) < File.GetLastWriteTimeUtc(heightPath)) aoPath = null;
+
+            if (!File.Exists(outPath) || File.GetLastWriteTimeUtc(outPath) < Newest(albedoPath, heightPath, aoPath))
+            {
+                var albedo = Load(albedoPath);
+                var height = Load(heightPath);
+                var ao = File.Exists(aoPath) ? Load(aoPath) : null;
+                try
+                {
+                    int w = albedo.width, h = albedo.height;
+                    if (height.width != w || height.height != h || (ao != null && (ao.width != w || ao.height != h)))
+                    {
+                        Debug.LogWarning($"Hodba: {prefix} — размеры альбедо, высот и AO не совпадают, микротеней не будет.");
+                        return null;
+                    }
+                    var color = albedo.GetPixels32();
+                    var cavity = Cavity(height.GetPixels32(), w, h, Mathf.Max(2, w / 160));
+                    var occlusion = ao != null ? ao.GetPixels32() : null;
+                    for (int i = 0; i < color.Length; i++)
+                    {
+                        float a = cavity[i] * (occlusion != null ? occlusion[i].r / 255f : 1f);
+                        color[i].a = (byte)Mathf.RoundToInt(Mathf.Clamp01(a) * 255f);
+                    }
+                    var packed = new Texture2D(w, h, TextureFormat.RGBA32, false);
+                    packed.SetPixels32(color);
+                    File.WriteAllBytes(outPath, packed.EncodeToPNG());
+                    Object.DestroyImmediate(packed);
+                }
+                finally
+                {
+                    Object.DestroyImmediate(albedo);
+                    Object.DestroyImmediate(height);
+                    if (ao != null) Object.DestroyImmediate(ao);
+                }
+                AssetDatabase.ImportAsset(outPath, ImportAssetOptions.ForceSynchronousImport);
+                CopyImport(albedoPath, outPath);
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(outPath);
+        }
+
+        static System.DateTime Newest(params string[] paths) =>
+            paths.Where(File.Exists).Select(File.GetLastWriteTimeUtc).Max();
+
+        static Texture2D Load(string path)
+        {
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+            tex.LoadImage(File.ReadAllBytes(path));
+            return tex;
+        }
+
+        /// <summary>1 на ровном и буграх, до 0,4 в самых глубоких впадинах (98-й процентиль) относительно размытой округи.</summary>
+        static float[] Cavity(Color32[] height, int w, int h, int radius)
+        {
+            var hv = new float[w * h];
+            for (int i = 0; i < hv.Length; i++) hv[i] = height[i].r / 255f;
+            var blurred = BoxBlur(BoxBlur(hv, w, h, radius, true), w, h, radius, false);
+
+            var depth = new float[hv.Length];
+            for (int i = 0; i < hv.Length; i++) depth[i] = Mathf.Max(0f, blurred[i] - hv[i]);
+            var sorted = depth.Where((_, i) => i % 7 == 0).OrderBy(d => d).ToArray();
+            float p98 = Mathf.Max(1e-4f, sorted[(int)(sorted.Length * 0.98f)]);
+
+            for (int i = 0; i < depth.Length; i++) depth[i] = 1f - 0.6f * Mathf.Clamp01(depth[i] / p98);
+            return depth;
+        }
+
+        /// <summary>Бесшовное размытие по строкам или столбцам: тайл повторяется, края заворачиваются.</summary>
+        static float[] BoxBlur(float[] src, int w, int h, int r, bool horizontal)
+        {
+            var dst = new float[src.Length];
+            int n = horizontal ? w : h, lines = horizontal ? h : w;
+            float inv = 1f / (2 * r + 1);
+            for (int line = 0; line < lines; line++)
+            {
+                int Index(int k)
+                {
+                    k = ((k % n) + n) % n;
+                    return horizontal ? line * w + k : k * w + line;
+                }
+                float sum = 0f;
+                for (int k = -r; k <= r; k++) sum += src[Index(k)];
+                for (int k = 0; k < n; k++)
+                {
+                    dst[Index(k)] = sum * inv;
+                    sum += src[Index(k + r + 1)] - src[Index(k - r)];
+                }
+            }
+            return dst;
+        }
+
+        static void CopyImport(string sourcePath, string targetPath)
+        {
+            var source = AssetImporter.GetAtPath(sourcePath) as TextureImporter;
+            var target = AssetImporter.GetAtPath(targetPath) as TextureImporter;
+            if (source == null || target == null) return;
+
+            var settings = new TextureImporterSettings();
+            source.ReadTextureSettings(settings);
+            settings.alphaSource = TextureImporterAlphaSource.FromInput;
+            settings.alphaIsTransparency = false;
+            target.SetTextureSettings(settings);
+            target.textureCompression = source.textureCompression;
+            foreach (var platform in new[] { "Standalone", "Android", "iPhone" })
+                target.SetPlatformTextureSettings(source.GetPlatformTextureSettings(platform));
+            target.SaveAndReimport();
         }
 
         static void AssignFootprints(FieldConfig config)
@@ -252,6 +392,23 @@ namespace Hodba.Editor
             SetMap(m, "_MetallicGlossMap", Tex(prefix, "MetallicSmoothness"), "_METALLICSPECGLOSSMAP");
             m.SetFloat("_Metallic", 0f);
             m.SetFloat("_Smoothness", 1f); // множитель к альфе MetallicSmoothness (1 − шероховатость)
+            m.enableInstancing = true;
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        /// <summary>Hodba/Rock из атласа пака: Albedo, Normal, AO. Свет и дымка — как у земли.</summary>
+        static Material Rock(string name, string prefix)
+        {
+            var albedo = Tex(prefix, "Albedo");
+            if (albedo == null) return null;
+            var m = Material(name, "Hodba/Rock");
+            if (m == null) return null;
+
+            m.SetColor("_BaseColor", Color.white);
+            m.SetTexture("_BaseMap", albedo);
+            m.SetTexture("_BumpMap", Tex(prefix, "Normal"));
+            m.SetTexture("_OcclusionMap", Tex(prefix, "AO"));
             m.enableInstancing = true;
             EditorUtility.SetDirty(m);
             return m;

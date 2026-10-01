@@ -68,7 +68,7 @@ Material:
     - _RippleStrength: 0.9
     - _RippleTile: 4
     - _VariantBlend: 0.3
-    - _Wrap: 0.3
+    - _Wrap: 0.1
     m_Colors:
     - _AshColor: {r: 1, g: 1, b: 1, a: 1}
     - _PackedColor: {r: 1, g: 1, b: 1, a: 1}

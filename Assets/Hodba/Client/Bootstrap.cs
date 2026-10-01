@@ -30,6 +30,8 @@ namespace Hodba.Client
         ExposureController _exposure;
         Wind _wind;
         Dust _dust;
+        DustShadows _dustShadows;
+        Saltation _saltation;
         ClipmapTerrain _ground;
         StoneScatter _stones;
         Footprints _footprints;
@@ -94,6 +96,8 @@ namespace Hodba.Client
             _eyeRender = new EyeRender(camera, config.eyeShader != null ? config.eyeShader : Shader.Find("Hidden/Hodba/Eye"));
             _wind = new Wind();
             _dust = new Dust(config, _origin);
+            _dustShadows = new DustShadows();
+            _saltation = new Saltation(_origin);
 
             ApplyExternalTextures();
             _ground = new ClipmapTerrain(_world, _origin, config, config.groundMaterial);
@@ -159,13 +163,17 @@ namespace Hodba.Client
             _breathAudio.Set(_walker.Exertion, config.breathVolume * config.masterVolume);
             if (_debug != null) _debug.Sample(dt);
 
+            float ground = _world.SampleHeightMm(_sim.Position) / 1000f;
             _clock.Tick(config);
-            _sky.Tick(_clock, config);
+            _sky.SetRaisedDust(_wind.Strength * _wind.Gust);
+            _sky.Tick(_clock, config, ground, dt);
+            _dustShadows.Tick(_wind, config, dt);
+            _saltation.Tick(_wind, config, _rig.Camera.transform.position, dt);
             _exposure.Tick(_rig.Camera, _clock, config, dt, _walker.Eyelids.Squint);
             _eyeRender.Apply(_walker.Eyelids, _exposure.GlareStimulus, _walker.Periphery);
 
-            float ground = _world.SampleHeightMm(_sim.Position) / 1000f;
-            _dust.Tick(_rig.Camera, _wind, config, _origin.ToLocal(_sim.Position, ground).y);
+            float looseness = _world.SampleSurface(_sim.Position.X, _sim.Position.Z).Looseness / 65536f;
+            _dust.Tick(_rig.Camera, _wind, config, _origin.ToLocal(_sim.Position, ground).y, looseness);
             _footprints.Tick(dt, _wind.Strength);
 
             float side = Mathf.Sin((_wind.Direction + 180f - _gaze.Yaw) * Mathf.Deg2Rad);
