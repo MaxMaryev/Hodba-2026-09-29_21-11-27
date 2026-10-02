@@ -24,7 +24,9 @@ namespace Hodba.Client
         readonly EyeWander _eyes;
         readonly Eyelids _eyelids;
         readonly SunIrritant _sun = new SunIrritant();
+        readonly StepRhythm _rhythm = new StepRhythm();
         double _time;
+        bool _walking;
 
         /// <summary>Итоговое отклонение головы в этом кадре.</summary>
         public PoseDelta Pose { get; private set; }
@@ -40,6 +42,8 @@ namespace Hodba.Client
         public float SunStimulus => _sun.Stimulus;
         /// <summary>0..1 — насколько приглушён фон ради события.</summary>
         public float Duck => _budget.Duck;
+        /// <summary>0..1 — сколько просит ритм тапов. Отдаётся симуляции намерением спешки.</summary>
+        public float Rhythm => _rhythm.Drive;
         public double Time => _time;
 
         public WalkerBody(FieldConfig config, IWorldQuery world)
@@ -90,17 +94,28 @@ namespace Hodba.Client
             _gait.Tick(ctx, c.gait, _exertion.State);
             _breath.Tick(_exertion.State, c.exertion);
             _posture.Tick(ctx, c.pose, _gait.State.Blend);
+            _walking = ctx.Sim.WantsWalk;
+            _rhythm.Tick(ctx.Dt, _gait.State, _walking, c.rhythm);
 
             var mixed = _budget.Mix(ctx.Dt, c.pose);
             var head = _head.Filter(mixed, ctx.Dt, c.pose);
             Pose = _budget.Limit(head, ctx.Dt, c.pose);
 
-            var attention = new AttentionInputs(_exertion.State.Caution, _gait.State.AheadChange, c.eyeHeight, ctx.Sim.Roughness);
+            var attention = new AttentionInputs(_exertion.State.Caution, _gait.State.AheadChange, c.eyeHeight, ctx.Sim.Roughness,
+                ctx.Sim.Haste);
             _eyes.Tick(ctx, attention, c.eyes, _budget.Duck);
 
             var eyes = _eyes.State;
             var view = BodyContext.Direction(ctx.HeadYaw + eyes.Yaw, ctx.HeadPitch + eyes.Pitch);
             _eyelids.Tick(ctx, view, c.eyelids);
+        }
+
+        /// <summary>Тап в такт ноге: подогнать себя. Мимо такта — шаг сбивается.</summary>
+        public TapResult Tap(bool left)
+        {
+            var result = _rhythm.Tap(left, _gait.State, _walking, _config.rhythm);
+            if (result == TapResult.Miss) _gait.Falter();
+            return result;
         }
 
         /// <summary>

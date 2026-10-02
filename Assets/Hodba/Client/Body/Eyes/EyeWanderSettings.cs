@@ -61,6 +61,10 @@ namespace Hodba.Client.Body
         public float groundChange;
         [Tooltip("Под ноги на буграх и наносах.")]
         public float groundRough;
+        [Tooltip("Под ноги при спешке в полную силу.")]
+        public float groundHaste;
+        [Tooltip("Насколько спешка гасит горизонт и камни вокруг, доля: торопясь, по сторонам не смотрят.")]
+        [Range(0f, 1f)] public float hasteNarrow;
         [Tooltip("Вероятность глянуть под ноги, когда тело подстраивает шаг под камень. Не 1: часто тело справляется само.")]
         [Range(0f, 1f)] public float obstacleLook;
         public float groundDwell;
@@ -127,6 +131,8 @@ namespace Hodba.Client.Body
             groundCaution = 0.6f,
             groundChange = 0.4f,
             groundRough = 0.5f,
+            groundHaste = 1f,
+            hasteNarrow = 0.6f,
             obstacleLook = 0.5f,
             groundDwell = 1.2f,
             stoneWeight = 0.5f,

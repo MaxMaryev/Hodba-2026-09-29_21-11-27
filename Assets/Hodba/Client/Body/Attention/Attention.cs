@@ -58,14 +58,20 @@ namespace Hodba.Client.Body
         public readonly float EyeHeight;
         /// <summary>0..1 — неровность под ногами: на буграх чаще смотрят под ноги.</summary>
         public readonly float Roughness;
+        /// <summary>0..1 — насколько подгоняет себя: взгляд под ноги, по сторонам почти не смотрит.</summary>
+        public readonly float Haste;
 
-        public AttentionInputs(float caution, float groundChange, float eyeHeight, float roughness = 0f)
+        public AttentionInputs(float caution, float groundChange, float eyeHeight, float roughness = 0f, float haste = 0f)
         {
             Caution = caution;
             GroundChange = groundChange;
             EyeHeight = eyeHeight;
             Roughness = roughness;
+            Haste = haste;
         }
+
+        /// <summary>Сколько веса остаётся у всего, что не под ногами: спешка — потеря внимания (закон 8).</summary>
+        public float Wander(in EyeWanderSettings s) => 1f - Mathf.Clamp01(Haste * s.hasteNarrow);
     }
 
     /// <summary>

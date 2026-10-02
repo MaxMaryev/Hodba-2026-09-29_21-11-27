@@ -21,7 +21,9 @@ Shader "Hidden/Hodba/WallLightingProbe"
                 #if defined(HODBA_WALL_LIGHTING)
                 if (_ProbeMode < 0.5) value=HodbaWallLightVisibility(_ProbePosition.xyz,HodbaSunDirection());
                 else if (_ProbeMode < 1.5) value=HodbaWallAmbientOcclusion(_ProbePosition.xyz,_ProbeNormal.xyz);
-                else value=HodbaFogLightVisibility(_ProbeEye.xyz,_ProbePosition.xyz);
+                else if (_ProbeMode < 2.5) value=HodbaFogLightVisibility(_ProbeEye.xyz,_ProbePosition.xyz);
+                else value=HodbaWallAmbientLight(half3(1,1,1),_ProbePosition.xyz,_ProbeNormal.xyz,HodbaSunDirection()).r
+                    /max(HodbaWallAmbientOcclusion(_ProbePosition.xyz,_ProbeNormal.xyz),0.001);
                 #endif
                 return float4(value,value,value,1);
             }

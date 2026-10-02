@@ -9,7 +9,7 @@ namespace Hodba.Client
 {
     /// <summary>
     /// Приборы для настройки тела — только в сборке для разработки. Игрок их не видит никогда (закон 3).
-    /// F1 или четыре пальца — графики; F2 — запись в CSV.
+    /// F1 или четыре пальца — графики; F2 — запись в CSV; F3 — шкала усталости (видна сразу).
     /// </summary>
     public sealed class BodyDebugOverlay : MonoBehaviour
     {
@@ -30,7 +30,7 @@ namespace Hodba.Client
         Channel[] _channels;
         bool[] _steps;
         int _head;
-        bool _visible, _fourLatch;
+        bool _visible, _fourLatch, _fatigueBar = true;
         Material _line;
         string _surface = "";
 
@@ -62,6 +62,10 @@ namespace Hodba.Client
                 Make("прищур", new Color(1f, 1f, 0.5f), 0f, 1f),
                 Make("глаз вбок, °", new Color(0.5f, 1f, 0.9f), -12f, 12f),
                 Make("глаз вниз, °", new Color(0.3f, 0.9f, 0.7f), -5f, 25f),
+                Make("усталость", new Color(1f, 0.55f, 0.2f), 0f, 1f),
+                Make("усилие", new Color(0.85f, 0.7f, 0.5f), 0f, 1.5f),
+                Make("спешка", new Color(0.3f, 0.95f, 1f), 0f, 1f),
+                Make("ритм", new Color(0.6f, 0.75f, 1f), 0f, 1f),
             };
             _steps = new bool[Samples];
         }
@@ -96,6 +100,10 @@ namespace Hodba.Client
             Put(9, _body.Eyelids.Squint);
             Put(10, _body.Eyes.Yaw);
             Put(11, _body.Eyes.Pitch);
+            Put(12, _sim.Fatigue);
+            Put(13, _sim.Effort);
+            Put(14, _sim.Haste);
+            Put(15, _body.Rhythm);
             _recorder.Write(_body.Time, dt, _body, _sim);
         }
 
@@ -108,6 +116,7 @@ namespace Hodba.Client
             {
                 if (kb.f1Key.wasPressedThisFrame) _visible = !_visible;
                 if (kb.f2Key.wasPressedThisFrame) _recorder.Toggle(_body.Time);
+                if (kb.f3Key.wasPressedThisFrame) _fatigueBar = !_fatigueBar;
             }
             if (EnhancedTouchSupport.enabled)
             {
@@ -119,13 +128,15 @@ namespace Hodba.Client
 
         void OnGUI()
         {
+            if (_fatigueBar) DrawFatigue();
             if (!_visible && !_recorder.Recording) return;
             if (_recorder.Recording) GUI.Label(new Rect(10, 10, 600, 22), $"● запись тела: {_recorder.Path}");
             if (!_visible) return;
 
             float w = Mathf.Min(Screen.width * 0.45f, 700f);
-            float h = 46f;
             float x0 = 10f, y0 = 36f;
+            // Все каналы должны влезть и на телефон.
+            float h = Mathf.Clamp((Screen.height - y0 - 50f) / _channels.Length - 4f, 18f, 46f);
 
             GUI.Label(new Rect(x0, y0 - 4f, w, 22f),
                 $"скорость {_sim.Speed:0.00} м/с  уклон {_sim.Slope * 100f:0}%  шаг {_body.Gait.StepFrequency:0.00}/с  " +
@@ -152,6 +163,39 @@ namespace Hodba.Client
                 GUI.Label(new Rect(x0 + w + 6f, y0 + c * (h + 4f) + h * 0.3f, 200f, 22f),
                     $"{ch.Name}: {ch.Values[_head]:0.00}");
             }
+        }
+
+        /// <summary>
+        /// Шкала усталости в правом верхнем углу: заливка — усталость, отметки — откат (оранжевая) и где спешка
+        /// слабеет и кончается (белые); под ней — спешка, которую тело выдаёт, и ритм, который просит игрок.
+        /// </summary>
+        void DrawFatigue()
+        {
+            var pace = _sim.Params.Pace;
+            const float w = 280f, h = 14f;
+            float x = Screen.width - w - 10f, y = 10f;
+            float f = _sim.Fatigue;
+
+            Fill(new Rect(x - 2f, y - 2f, w + 4f, h + 52f), new Color(0f, 0f, 0f, 0.45f));
+            Fill(new Rect(x, y, w * f, h), Color.Lerp(new Color(0.4f, 0.85f, 0.4f), new Color(1f, 0.3f, 0.2f), f));
+            Fill(new Rect(x + w * pace.DebtFrom - 1f, y, 2f, h), new Color(1f, 0.6f, 0.1f));
+            Fill(new Rect(x + w * pace.HurryFadeFrom - 1f, y, 2f, h), Color.white);
+            Fill(new Rect(x + w * pace.HurryFadeTo - 1f, y, 2f, h), Color.white);
+            Fill(new Rect(x, y + h + 2f, w * _sim.Haste, 4f), new Color(0.3f, 0.95f, 1f));
+            Fill(new Rect(x, y + h + 7f, w * _body.Rhythm, 3f), new Color(0.6f, 0.75f, 1f));
+
+            GUI.Label(new Rect(x, y + h + 10f, w, 22f),
+                $"усталость {f:0.00}  усилие {_sim.Effort:0.00}  спешка {_sim.Haste:0.00}  ритм {_body.Rhythm:0.00}");
+            GUI.Label(new Rect(x, y + h + 26f, w, 22f),
+                $"темп ×{_sim.PaceFactor:0.00}  {_sim.Speed:0.00} м/с (обычно {_sim.Params.BaseSpeed:0.00})");
+        }
+
+        static void Fill(Rect r, Color c)
+        {
+            var old = GUI.color;
+            GUI.color = c;
+            GUI.DrawTexture(r, Texture2D.whiteTexture);
+            GUI.color = old;
         }
 
         void DrawChannel(in Channel ch, float x0, float y0, float w, float h)

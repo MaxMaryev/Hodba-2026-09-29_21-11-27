@@ -9,6 +9,8 @@ namespace Hodba.Sim.Walk
         SetCourse,
         /// <summary>Замедлиться, присматриваясь: Value — множитель скорости 0..1.</summary>
         SetAttention,
+        /// <summary>Подгонять себя: Value — сколько просит ритм шагов, 0..1. Тело даёт, сколько может (запас сил).</summary>
+        Hurry,
     }
 
     /// <summary>
@@ -31,5 +33,6 @@ namespace Hodba.Sim.Walk
         public static Intent Toggle() => new Intent(IntentKind.ToggleWalk);
         public static Intent Course(float degrees) => new Intent(IntentKind.SetCourse, degrees);
         public static Intent Attention(float speedFactor) => new Intent(IntentKind.SetAttention, speedFactor);
+        public static Intent Hurry(float drive) => new Intent(IntentKind.Hurry, drive);
     }
 }

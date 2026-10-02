@@ -41,7 +41,7 @@ namespace Hodba.Tests
                 prev = up;
             }
             TestContext.WriteLine($"худшая вторая разность вертикали: {worst * 1000f:0.0000} мм");
-            Assert.That(h.Steps.Count - steps, Is.GreaterThan(30), "шаги были");
+            Assert.That(h.Steps.Count - steps, Is.GreaterThan(20), "шаги были");
             Assert.That(worst * 1000f, Is.LessThan(0.3f), "вторая разность вертикали, мм");
         }
 

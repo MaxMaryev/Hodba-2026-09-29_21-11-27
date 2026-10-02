@@ -12,7 +12,8 @@ namespace Hodba.Client.Body
         {
             float yaw = ctx.HeadYaw + rng.Range(-s.horizonYaw, s.horizonYaw);
             float pitch = rng.Range(0.3f, 2.5f); // чуть ниже линии горизонта
-            into.Add(new GazeCandidate(GazeKind.Nothing, GazeSpace.World, yaw, pitch, s.horizonWeight, 60f, s.horizonDwell));
+            into.Add(new GazeCandidate(GazeKind.Nothing, GazeSpace.World, yaw, pitch, s.horizonWeight * inputs.Wander(s), 60f,
+                s.horizonDwell));
         }
     }
 
@@ -27,7 +28,7 @@ namespace Hodba.Client.Body
             // Если голова смотрит далеко в сторону, дорога под ногами вне поля глаз.
             float along = Mathf.Clamp01(Mathf.Cos(WalkSim.DeltaAngle(ctx.HeadYaw, ctx.Sim.Course) * Mathf.Deg2Rad));
             float weight = (s.groundBase + inputs.Caution * s.groundCaution + inputs.GroundChange * s.groundChange
-                            + inputs.Roughness * s.groundRough) * along;
+                            + inputs.Roughness * s.groundRough + inputs.Haste * s.groundHaste) * along;
             into.Add(new GazeCandidate(GazeKind.Ground, GazeSpace.Body, rng.Range(-4f, 4f), pitch, weight, d, s.groundDwell));
         }
     }
@@ -72,7 +73,7 @@ namespace Hodba.Client.Body
             long reach = (long)(radius * 1000f);
             long x0 = Hodba.Core.WorldPos.FloorDiv(p.X - reach, cellMm), x1 = Hodba.Core.WorldPos.FloorDiv(p.X + reach, cellMm);
             long z0 = Hodba.Core.WorldPos.FloorDiv(p.Z - reach, cellMm), z1 = Hodba.Core.WorldPos.FloorDiv(p.Z + reach, cellMm);
-            float fresh = 1f - habituation.Familiarity(kind);
+            float fresh = (1f - habituation.Familiarity(kind)) * inputs.Wander(s);
 
             for (long cz = z0; cz <= z1; cz++)
             for (long cx = x0; cx <= x1; cx++)

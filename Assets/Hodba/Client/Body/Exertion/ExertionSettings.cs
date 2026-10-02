@@ -9,17 +9,7 @@ namespace Hodba.Client.Body
     [Serializable]
     public struct ExertionSettings
     {
-        [Header("Усилие")]
-        [Tooltip("Усилие ровного шага, 0..1.")]
-        public float baseEffort;
-        [Tooltip("Сколько добавляет подъём, на единицу уклона.")]
-        public float uphillEffort;
-        [Tooltip("Сколько добавляет рыхлость при полной рыхлости.")]
-        public float looseEffort;
-        [Tooltip("Сколько добавляют бугры и наносы в полную силу.")]
-        public float roughEffort;
-        [Tooltip("Сколько добавляет разгон, на м/с².")]
-        public float accelEffort;
+        [Header("Одышка (усилие и усталость считает симуляция: WalkParams.Pace)")]
         [Tooltip("Как быстро копится одышка, с.")]
         public float loadRise;
         [Tooltip("Как долго отпускает, с. После подъёма дыхание восстанавливается постепенно.")]
@@ -61,11 +51,6 @@ namespace Hodba.Client.Body
 
         public static ExertionSettings Default => new ExertionSettings
         {
-            baseEffort = 0.3f,
-            uphillEffort = 5f,
-            looseEffort = 0.35f,
-            roughEffort = 0.2f,
-            accelEffort = 0.25f,
             loadRise = 10f,
             loadFall = 45f,
 

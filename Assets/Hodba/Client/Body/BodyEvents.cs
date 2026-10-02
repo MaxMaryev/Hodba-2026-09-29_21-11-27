@@ -63,6 +63,8 @@ namespace Hodba.Client.Body
         Stumble,
         /// <summary>Взгляд крупно перевёл внимание — часто вместе с морганием.</summary>
         GazeShift,
+        /// <summary>Сбился с ритма: подгонял себя не в такт шагу.</summary>
+        Misstep,
     }
 
     public readonly struct BodyEvent

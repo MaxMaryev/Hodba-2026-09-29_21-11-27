@@ -27,6 +27,40 @@ namespace Hodba.Tests
             Assert.That(h.Exertion.State.BreathRate, Is.LessThan(peakRate));
         }
 
+        /// <summary>Быстрый шаг: дыхание тяжелеет за полминуты, а запас сил уходит минутами.</summary>
+        [Test]
+        public void Hurry_BreathHeavyFast_ReserveDrainsSlowly()
+        {
+            var h = new BodyHarness(new FlatWorld());
+            h.Sim.Apply(Intent.Walk());
+            h.Run(10f, 1f / 30f);
+            float calm = h.Exertion.State.Load;
+
+            h.Sim.Apply(Intent.Hurry(1f));
+            h.Run(30f, 1f / 30f);
+            Assert.That(h.Exertion.State.Load, Is.GreaterThan(calm + 0.25f), "дыхание тяжелеет сразу");
+            Assert.That(h.Sim.Fatigue, Is.LessThan(0.15f), "силы почти не тронуты");
+        }
+
+        /// <summary>После спешки дыхание тяжёлое, пока не вернулся запас сил, а не только пока идёт рывок.</summary>
+        [Test]
+        public void AfterHurry_BreathStaysHeavyWhileFatigued()
+        {
+            var h = new BodyHarness(new FlatWorld());
+            h.Sim.Apply(Intent.Walk());
+            h.Run(10f, 1f / 30f);
+            float calm = h.Exertion.State.Load;
+
+            h.Sim.Apply(Intent.Hurry(1f));
+            h.Run(600f, 1f / 30f);
+            h.Sim.Apply(Intent.Hurry(0f));
+            h.Run(15f, 1f / 30f);
+
+            Assert.That(h.Sim.Effort, Is.LessThan(h.Sim.Params.Pace.Sustainable), "уже идёт спокойно");
+            Assert.That(h.Sim.Fatigue, Is.GreaterThan(0.4f), "но запас ещё не вернулся");
+            Assert.That(h.Exertion.State.Load, Is.GreaterThan(calm + 0.15f), "и одышка держится");
+        }
+
         [Test]
         public void Caution_LingersAfterLooseGround()
         {

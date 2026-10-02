@@ -51,12 +51,18 @@ namespace Hodba.Client.Body
         public float footOffset;
         [Tooltip("Насколько стопа при ударе впереди тела, доля шага.")]
         [Range(0f, 0.8f)] public float footReach;
-        [Tooltip("Насколько корпус кренится от разницы высот левой и правой стопы, доля (тело гасит остальное).")]
+        [Tooltip("Насколько голова кренится от разницы высот левой и правой стопы, доля: голова держит горизонт, доходит малое.")]
         [Range(0f, 1f)] public float footRoll;
         [Tooltip("Насколько наклоняется от разницы высот опорной и прошлой стопы, доля.")]
         [Range(0f, 1f)] public float footPitch;
-        [Tooltip("Как быстро вес переходит на новую стопу, Гц.")]
+        [Tooltip("Сколько неровности под стопой гасят голеностоп и колено, м: много меньше этого до тела не доходит, много больше — почти целиком.")]
+        public float footCompliance;
+        [Tooltip("Насколько каждый шаг подправляет представление тела о земле под собой, доля: остальное — неровность под стопой.")]
+        [Range(0f, 1f)] public float groundLearn;
+        [Tooltip("Как тело следует земле под собой (общему уклону), Гц.")]
         public float supportHz;
+        [Tooltip("Как быстро вес переходит на неровность под новой стопой, Гц: ниже — за больший кусок шага.")]
+        public float reliefHz;
         [Tooltip("Куда тело заглядывает заранее, м.")]
         public float lookAhead;
         [Tooltip("Насколько шаг укорачивается перед переменой земли, доля.")]
@@ -84,6 +90,14 @@ namespace Hodba.Client.Body
         public float stumbleKick;
         [Tooltip("Кивок при спотыкании, °/с толчка.")]
         public float stumbleNod;
+
+        [Header("Спешка")]
+        [Tooltip("Насколько длиннее шаг при спешке в полную силу, доля. Частота растёт сама — шаги идут по пути.")]
+        [Range(0f, 0.3f)] public float hasteStride;
+        [Tooltip("Насколько выше подскок при спешке, доля.")]
+        [Range(0f, 1f)] public float hasteBounce;
+        [Tooltip("Насколько реже замечает камень на пути при спешке, доля. Спотыкается при этом вдвое чаще.")]
+        [Range(0f, 1f)] public float hasteCareless;
 
         [Header("Переходы")]
         [Tooltip("Длина первого шага из стойки, доля.")]
@@ -129,9 +143,12 @@ namespace Hodba.Client.Body
             accelLean = 1.2f,
             footOffset = 0.12f,
             footReach = 0.35f,
-            footRoll = 0.25f,
+            footRoll = 0.08f,
             footPitch = 0.1f,
+            footCompliance = 0.03f,
+            groundLearn = 0.15f,
             supportHz = 3f,
+            reliefHz = 1.6f,
             lookAhead = 2.5f,
             anticipation = 0.08f,
             surfaces = SurfaceFeel.Defaults(),
@@ -146,6 +163,10 @@ namespace Hodba.Client.Body
             stumbleChance = 0.12f,
             stumbleKick = 0.3f,
             stumbleNod = 45f,
+
+            hasteStride = 0.15f,
+            hasteBounce = 0.3f,
+            hasteCareless = 0.5f,
 
             firstStep = 0.65f,
             startLean = 6f,

@@ -25,7 +25,26 @@ MonoBehaviour:
     StepLength: 0.6
     LoosenessDrag: 0.2
     RoughnessDrag: 0.1
+    SteepDescent: 0.15
     DownhillEase: 0.45
+    Pace:
+      BaseEffort: 0.3
+      UphillEffort: 5
+      LooseEffort: 0.35
+      RoughEffort: 0.2
+      AccelEffort: 0.25
+      Sustainable: 0.42
+      SpendTime: 120
+      RecoverTime: 240
+      DebtFrom: 0.45
+      DebtSlow: 0.35
+      HurryGain: 0.6
+      HurryFadeFrom: 0.5
+      HurryFadeTo: 0.85
+      HasteRise: 1.5
+      HasteFall: 2
+      DriftAmount: 0.04
+      DriftCellM: 60
   eyeHeight: 1.65
   fov: 60
   gazeStabilization: 0.7
@@ -49,9 +68,12 @@ MonoBehaviour:
     accelLean: 1.2
     footOffset: 0.12
     footReach: 0.35
-    footRoll: 0.25
+    footRoll: 0.08
     footPitch: 0.1
+    footCompliance: 0.03
+    groundLearn: 0.15
     supportHz: 3
+    reliefHz: 1.6
     lookAhead: 2.5
     anticipation: 0.08
     surfaces:
@@ -94,6 +116,9 @@ MonoBehaviour:
     stumbleChance: 0.12
     stumbleKick: 0.3
     stumbleNod: 45
+    hasteStride: 0.15
+    hasteBounce: 0.3
+    hasteCareless: 0.5
     firstStep: 0.65
     startLean: 6
     stopSettle: 7
@@ -104,11 +129,6 @@ MonoBehaviour:
     eventHz: 2.8
     leanHz: 1.2
   exertion:
-    baseEffort: 0.3
-    uphillEffort: 5
-    looseEffort: 0.35
-    roughEffort: 0.2
-    accelEffort: 0.25
     loadRise: 10
     loadFall: 45
     breathRest: 0.23
@@ -127,6 +147,13 @@ MonoBehaviour:
     downhillFrom: 0.12
     aheadCaution: 0.5
     stumbleCaution: 0.6
+  rhythm:
+    early: 0.45
+    late: 0.15
+    buildTaps: 3
+    graceSteps: 1.6
+    fallSteps: 1
+    missKeep: 0.4
   pose:
     headHz: 5
     headDamping: 0.55
@@ -191,6 +218,8 @@ MonoBehaviour:
     groundCaution: 0.6
     groundChange: 0.4
     groundRough: 0.5
+    groundHaste: 1
+    hasteNarrow: 0.6
     obstacleLook: 0.5
     groundDwell: 1.2
     stoneWeight: 0.5

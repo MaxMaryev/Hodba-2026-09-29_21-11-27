@@ -48,9 +48,8 @@ namespace Hodba.Client.Body
         readonly Signature _sig;
         readonly PinkNoise _rateDrift, _depthDrift;
 
-        float _effort, _load, _caution, _lastSpeed;
+        float _effort, _load, _caution;
         float _phase, _rate, _depth, _hitch;
-        bool _hasSpeed;
 
         public ExertionState State { get; private set; }
 
@@ -71,15 +70,10 @@ namespace Hodba.Client.Body
             if (dt <= 0f) return;
             var sim = ctx.Sim;
 
-            float accel = _hasSpeed ? (sim.Speed - _lastSpeed) / dt : 0f;
-            _lastSpeed = sim.Speed;
-            _hasSpeed = true;
-
-            float effort = ctx.SpeedNorm * (s.baseEffort + Mathf.Max(0f, sim.Slope) * s.uphillEffort + sim.Looseness * s.looseEffort
-                                            + sim.Roughness * s.roughEffort)
-                           + Mathf.Max(0f, accel) * s.accelEffort;
-            _effort = Approach(_effort, Mathf.Clamp01(effort), 0.5f, 0.5f, dt);
-            _load = Approach(_load, _effort, s.loadRise, s.loadFall, dt);
+            // Усилие и усталость считает симуляция; одышка тянется к большему из них: после спешки
+            // дыхание тяжёлое всё время, пока не вернулся запас сил.
+            _effort = Approach(_effort, Mathf.Clamp01(sim.Effort), 0.5f, 0.5f, dt);
+            _load = Approach(_load, Mathf.Max(_effort, sim.Fatigue), s.loadRise, s.loadFall, dt);
 
             float cautionTarget = Mathf.Clamp01(gait.GroundCaution
                                                 + Mathf.Max(0f, -sim.Slope - s.downhillFrom) * s.downhillCaution

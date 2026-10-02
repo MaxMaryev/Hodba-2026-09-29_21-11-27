@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Hodba.Client.Body;
 using Hodba.Core;
@@ -19,12 +20,22 @@ namespace Hodba.Tests
             public SurfaceSample SampleSurface(long xMm, long zMm) => new SurfaceSample(SurfaceKind.PackedAsh, 10_000);
         }
 
-        /// <summary>Рябь: 3 см на 0,7 м поперёк пути.</summary>
+        /// <summary>Рябь: 3 см на 0,7 м поперёк пути. С нулевой высотой — та же земля, но гладкая.</summary>
         sealed class Rippled : IWorldQuery
         {
+            readonly double _amplitudeMm;
+            public Rippled(double amplitudeMm = 15.0) { _amplitudeMm = amplitudeMm; }
             public WorldInfo Info => new WorldInfo(1, 0, "rippled");
-            public long SampleHeightMm(long xMm, long zMm) => (long)(15.0 * Math.Sin(zMm / 700.0 * Math.PI * 2.0));
+            public long SampleHeightMm(long xMm, long zMm) => (long)(_amplitudeMm * Math.Sin(zMm / 700.0 * Math.PI * 2.0));
             public SurfaceSample SampleSurface(long xMm, long zMm) => new SurfaceSample(SurfaceKind.FineAsh, 50_000, 26_000, 65_536);
+        }
+
+        /// <summary>Уступ 6 см поперёк пути через 10 м.</summary>
+        sealed class Ledge : IWorldQuery
+        {
+            public WorldInfo Info => new WorldInfo(1, 0, "ledge");
+            public long SampleHeightMm(long xMm, long zMm) => zMm < 10_000 ? 0 : 60;
+            public SurfaceSample SampleSurface(long xMm, long zMm) => new SurfaceSample(SurfaceKind.PackedAsh, 10_000);
         }
 
         /// <summary>Бугры: высота гуляет на 2,5 м.</summary>
@@ -56,8 +67,11 @@ namespace Hodba.Tests
             return (float)(sum / n);
         }
 
+        /// <summary>Земля под телом и неровность под стопами — всё, что рельеф даёт голове по высоте, м.</summary>
+        static float Terrain(BodyHarness h) => h.Gait.State.SupportHeight + h.Gait.State.Relief;
+
         [Test]
-        public void Body_TiltsWithTheFeet()
+        public void Head_StaysLevel_WhenFeetDiffer()
         {
             var flat = Walking(new FlatWorld());
             var tilted = Walking(new Tilted());
@@ -65,8 +79,67 @@ namespace Hodba.Tests
             tilted.Run(5f, 1f / 30f);
             float a = MeanRoll(flat, 20f), b = MeanRoll(tilted, 20f);
             TestContext.WriteLine($"средний крен: ровно {a:0.00}°, левая нога выше {b:0.00}°");
-            Assert.That(b - a, Is.GreaterThan(0.8f), "корпус кренится к ноге, что ниже");
-            Assert.That(b - a, Is.LessThan(4f), "но тело гасит большую часть");
+            Assert.That(b - a, Is.GreaterThan(0.03f), "голову чуть ведёт к ноге, что ниже");
+            Assert.That(b - a, Is.LessThan(0.5f), "но горизонт она держит: ноги и шея гасят почти всё");
+        }
+
+        /// <summary>Разброс величины вокруг среднего.</summary>
+        static float Spread(List<float> v)
+        {
+            float mean = v.Average();
+            return Mathf.Sqrt(v.Select(x => (x - mean) * (x - mean)).Average());
+        }
+
+        /// <summary>Рябь в пару сантиметров ноги гасят: голова качается почти как на гладкой земле того же рода.</summary>
+        [Test]
+        public void Ripples_DoNotShakeTheHead()
+        {
+            var smooth = Walking(new Rippled(0));
+            var rippled = Walking(new Rippled());
+            smooth.Run(5f, 1f / 30f);
+            rippled.Run(5f, 1f / 30f);
+            var upA = new List<float>();
+            var upB = new List<float>();
+            var rollA = new List<float>();
+            var rollB = new List<float>();
+            var ground = new List<float>();
+            for (int i = 0; i < 600; i++)
+            {
+                smooth.Tick(1f / 30f);
+                rippled.Tick(1f / 30f);
+                upA.Add(smooth.Gait.State.SupportHeight + smooth.Pose.Up);
+                upB.Add(rippled.Gait.State.SupportHeight + rippled.Pose.Up);
+                rollA.Add(smooth.Pose.Roll);
+                rollB.Add(rippled.Pose.Roll);
+                ground.Add(Terrain(rippled));
+            }
+            float ua = Spread(upA) * 1000f, ub = Spread(upB) * 1000f, ra = Spread(rollA), rb = Spread(rollB);
+            float g = Spread(ground) * 1000f;
+            TestContext.WriteLine($"высота глаз ±{ua:0.0} → ±{ub:0.0} мм, крен ±{ra:0.00} → ±{rb:0.00}°, рельеф ±{g:0.0} мм");
+            Assert.That(ub, Is.LessThan(ua * 1.1f + 0.5f), "рябь не раскачивает по высоте");
+            Assert.That(rb, Is.LessThan(ra * 1.1f + 0.05f), "рябь не раскачивает по крену");
+            Assert.That(g, Is.LessThan(2.5f), "от ряби в голову доходят миллиметры");
+        }
+
+        /// <summary>Настоящий уступ тело чувствует: поднимается на него — но плавно, без толчка.</summary>
+        [Test]
+        public void Ledge_IsFelt_Smoothly()
+        {
+            var h = Walking(new Ledge());
+            const float dt = 1f / 500f;
+            h.Run(1f, dt);
+            float start = Terrain(h), prev = start, fastest = 0f;
+            while (h.Sim.Position.Z < 16_000)
+            {
+                h.Tick(dt);
+                float t = Terrain(h);
+                fastest = Mathf.Max(fastest, Mathf.Abs(t - prev) / dt);
+                prev = t;
+            }
+            float rise = Terrain(h) - start;
+            TestContext.WriteLine($"поднялся на {rise * 1000f:0} мм, быстрее всего {fastest:0.000} м/с");
+            Assert.That(rise, Is.GreaterThan(0.05f), "уступ в 6 см тело чувствует");
+            Assert.That(fastest, Is.LessThan(0.25f), "и поднимается на него плавно");
         }
 
         [Test]
@@ -75,11 +148,11 @@ namespace Hodba.Tests
             var h = Walking(new Bumpy());
             const float dt = 1f / 500f;
             h.Run(3f, dt);
-            float prev = h.Gait.State.SupportHeight, prevDelta = 0f, worst = 0f, min = float.MaxValue, max = float.MinValue;
+            float prev = Terrain(h), prevDelta = 0f, worst = 0f, min = float.MaxValue, max = float.MinValue;
             for (int i = 0; i < 10_000; i++)
             {
                 h.Tick(dt);
-                float s = h.Gait.State.SupportHeight;
+                float s = Terrain(h);
                 float d = s - prev;
                 if (i > 0) worst = Mathf.Max(worst, Mathf.Abs(d - prevDelta));
                 prevDelta = d;
@@ -95,14 +168,13 @@ namespace Hodba.Tests
         /// <summary>Разброс крена вокруг среднего, °.</summary>
         static float RollSpread(BodyHarness h, float seconds)
         {
-            var rolls = new System.Collections.Generic.List<float>();
+            var rolls = new List<float>();
             for (float t = 0; t < seconds; t += 1f / 30f)
             {
                 h.Tick(1f / 30f);
                 rolls.Add(h.Gait.Pose.Roll);
             }
-            float mean = rolls.Average();
-            return Mathf.Sqrt(rolls.Select(r => (r - mean) * (r - mean)).Average());
+            return Spread(rolls);
         }
 
         /// <summary>

@@ -39,8 +39,10 @@ namespace Hodba.Client
         // Тело — из кирпичиков: у каждого модуля свои настройки. Все числа стартовые, подбираются на телефоне.
         [Header("Тело: походка и опора")]
         public GaitSettings gait = GaitSettings.Default;
-        [Header("Тело: усилие, дыхание, осторожность")]
+        [Header("Тело: одышка, дыхание, осторожность")]
         public ExertionSettings exertion = ExertionSettings.Default;
+        [Header("Тело: спешка тапами в такт ногам")]
+        public RhythmSettings rhythm = RhythmSettings.Default;
         [Header("Тело: как слои складываются в голову")]
         public PoseSettings pose = PoseSettings.Default;
         [Header("Глаза: веки, моргание, прищур")]

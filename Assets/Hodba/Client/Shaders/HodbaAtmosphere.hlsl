@@ -27,33 +27,97 @@ float3 HodbaSunDirection()
     return s * rsqrt(max(dot(s, s), 1e-8));
 }
 
-bool HodbaWallRayAxis(float p, float d, float lo, float hi, inout float nearT, inout float farT)
+// Circular solar disc, angular radius 0.27 degrees. Signed sine is accurate
+// enough at this angle; this is a segment area, not a spatial blur.
+float HodbaSunDiscCoverage(float signedSine)
 {
-    if (abs(d) < 1e-6) return p >= lo && p <= hi;
-    float a = (lo-p)/d, b = (hi-p)/d;
-    nearT=max(nearT,min(a,b)); farT=min(farT,max(a,b));
-    return nearT <= farT;
+    float x=signedSine/0.00471239;
+    if (x <= -1) return 0;
+    if (x >= 1) return 1;
+    return 0.5+(asin(x)+x*sqrt(max(1-x*x,0)))/PI;
 }
 
-bool HodbaWallRayInterval(float3 p, float3 L, float halfWidth, float top, out float nearT, out float farT)
+float HodbaWallEdgeCoverage(float distance, float height, float toward, float sunY)
 {
-    nearT=0; farT=1e20;
-    return HodbaWallRayAxis(p.x-_HodbaWall.x,L.x,-halfWidth,halfWidth,nearT,farT)
-        && HodbaWallRayAxis(p.y,L.y,-100,top,nearT,farT) && farT > 0.001;
+    float lengthToEdge=max(length(float2(distance,height)),1e-5);
+    return HodbaSunDiscCoverage((height*toward-distance*sunY)/lengthToEdge);
 }
 
-// Analytic solid-wall shadow: works beyond URP's short cascades and on airborne dust.
+// The infinite panel silhouette, including its buried lower edge.
+float HodbaWallPanelCoverage(float2 p, float2 L, float halfWidth, float top)
+{
+    float coverage=1;
+    if (abs(p.x) <= halfWidth)
+    {
+        if (p.y >= top) coverage=HodbaSunDiscCoverage(-L.y);
+        else if (p.y <= -100) coverage=HodbaSunDiscCoverage(L.y);
+    }
+    else
+    {
+        float distance=abs(p.x)-halfWidth;
+        float toward=-sign(p.x)*L.x;
+        float facing=HodbaSunDiscCoverage(toward);
+        float upper=HodbaWallEdgeCoverage(distance,top-p.y,toward,L.y);
+        float lower=HodbaWallEdgeCoverage(distance,p.y+100,toward,-L.y);
+        coverage=facing*upper*lower;
+    }
+    return coverage;
+}
+
+// Project both near and far corners of a pier. Side and top disc segments
+// are multiplied: a small, bounded approximation near silhouette corners.
+float HodbaWallPierCoverage(float3 p, float3 L, float halfX, float halfZ, float top)
+{
+    float coverage=0;
+    if (abs(p.x) <= halfX && abs(p.z) <= halfZ)
+    {
+        coverage=HodbaWallPanelCoverage(p.xy,L.xy,halfX,top);
+    }
+    else
+    {
+        float a=p.x, b=p.z, la=L.x, lb=L.z, ha=halfX, hb=halfZ;
+        if (abs(a) <= ha)
+        {
+            a=p.z; b=p.x; la=L.z; lb=L.x; ha=halfZ; hb=halfX;
+        }
+        float distance=max(abs(a)-ha,1e-5), farDistance=abs(a)+ha;
+        float toward=-sign(a)*la;
+        float vertical=HodbaWallPanelCoverage(float2(a,p.y),float2(la,L.y),ha,top);
+        if (vertical > 0)
+        {
+            float left=-hb-b, right=hb-b;
+            float dl=left < 0 ? distance : farDistance;
+            float dr=right > 0 ? distance : farDistance;
+            float fromLeft=HodbaSunDiscCoverage((dl*lb-left*toward)/max(length(float2(dl,left)),1e-5));
+            float fromRight=HodbaSunDiscCoverage((dr*lb-right*toward)/max(length(float2(dr,right)),1e-5));
+            coverage=vertical*saturate(fromLeft-fromRight);
+        }
+    }
+    return coverage;
+}
+
+// Soft analytic wall shadow beyond URP cascades. All receivers use the same
+// finite sun disc; Unity shadow casting stays enabled for standard URP Lit.
 half HodbaWallLightVisibility(float3 p, float3 L)
 {
     if (_HodbaWall.w < 0.5 || dot(L,L) < 1e-8) return 1;
-    float nearT, farT;
-    if (HodbaWallRayInterval(p,L,_HodbaWall.y,_HodbaWall.z,nearT,farT)) return 0;
-    if (!HodbaWallRayInterval(p,L,_HodbaWall.y+_HodbaWallDetails.x,_HodbaWallDetails.w,nearT,farT)) return 1;
-    float z=p.z+_HodbaOriginMod.y, period=max(_HodbaWallDetails.z,1), halfWidth=_HodbaWallDetails.y;
-    if (abs(L.z) < 1e-6) return abs(z-round(z/period)*period) <= halfWidth ? 0 : 1;
-    if (farT > 1e19) return 0;
-    float a=z+L.z*nearT, b=z+L.z*farT;
-    return ceil((min(a,b)-halfWidth)/period)*period <= max(a,b)+halfWidth ? 0 : 1;
+    L=normalize(L);
+    p.x-=_HodbaWall.x;
+    p.z+=_HodbaOriginMod.y;
+    float panel=HodbaWallPanelCoverage(p.xy,L.xy,_HodbaWall.y,_HodbaWall.z);
+    if (panel >= 0.9999) return 0;
+    float halfX=_HodbaWall.y+_HodbaWallDetails.x;
+    float period=max(_HodbaWallDetails.z,1);
+    float toward=-sign(p.x)*L.x;
+    float t=max(abs(p.x)-halfX,0)/max(toward,1e-5);
+    float centre=round((p.z+L.z*t)/period)*period;
+    // When the sun travels along the wall, select nearby Z faces directly.
+    if (toward < 1e-4) centre=round(p.z/period)*period;
+    float piers=0;
+    [unroll] for(int k=-1;k<=1;k++)
+        piers+=HodbaWallPierCoverage(float3(p.x,p.y,p.z-centre-k*period),L,
+            halfX,_HodbaWallDetails.y,_HodbaWallDetails.w);
+    return (1-panel)*(1-saturate(piers));
 }
 
 // Infinite vertical plane's angular obstruction; outward-facing walls retain open sky.
@@ -76,20 +140,77 @@ half3 HodbaWallAmbientLight(half3 ambient, float3 p, float3 n, float3 L)
     return ambient*bounce*HodbaWallAmbientOcclusion(p,n);
 }
 
+// Clip a view segment against one shadow half-space: f(t) >= 0.
+bool HodbaClipShadowPlane(float atEye, float alongRay, inout float lo, inout float hi)
+{
+    if (abs(alongRay) < 1e-7) return atEye >= 0;
+    float t=-atEye/alongRay;
+    if (alongRay > 0) lo=max(lo,t); else hi=min(hi,t);
+    return lo < hi;
+}
+
+float HodbaMeanExponential(float a, float b)
+{
+    float delta=b-a;
+    return abs(delta) < 1e-3 ? exp(-(a+b)*0.5) : (exp(-a)-exp(-b))/delta;
+}
+
+// Integral of the exact clamped height density over [lo,hi] on a view ray.
+// Splitting at the density floor also handles rays that cross a low basin.
+float HodbaFogDensityIntegral(float eyeY, float endY, float lo, float hi)
+{
+    float span=max(hi-lo,0);
+    if (_HodbaFog.y <= 0) return span;
+    float a=(lerp(eyeY,endY,lo)-_HodbaFog.w)*_HodbaFog.y;
+    float b=(lerp(eyeY,endY,hi)-_HodbaFog.w)*_HodbaFog.y;
+    float cap=max(_HodbaHaze.z,1), floorHeight=-log(cap);
+    float average;
+    if (max(a,b) <= floorHeight) average=cap;
+    else if (min(a,b) >= floorHeight) average=HodbaMeanExponential(a,b);
+    else
+    {
+        float crossing=saturate((floorHeight-a)/(b-a));
+        average=a < floorHeight
+            ? cap*crossing+HodbaMeanExponential(floorHeight,b)*(1-crossing)
+            : HodbaMeanExponential(a,floorHeight)*crossing+cap*(1-crossing);
+    }
+    return span*lerp(average,1.0,saturate(_HodbaFog.z));
+}
+
 half HodbaFogLightVisibility(float3 eye, float3 endpoint)
 {
     if (_HodbaWall.w < 0.5) return 1;
-    float total=0, illuminated=0;
     float3 L=HodbaSunDirection();
-    [unroll] for (int k=0;k<4;k++)
+    if (dot(L,L) < 1e-8) return 1;
+    float2 p=float2(eye.x-_HodbaWall.x,eye.y);
+    float2 d=float2(endpoint.x-eye.x,endpoint.y-eye.y);
+    float lo=0,hi=1, halfWidth=_HodbaWall.y, top=_HodbaWall.z;
+    // Infinite-Z box extruded away from the sun: convex shadow prism.
+    // The lower slanted plane matters only below the buried foundation.
+    float sx=L.x >= 0 ? 1 : -1, sy=L.y >= 0 ? 1 : -1;
+    if (!HodbaClipShadowPlane(halfWidth-sx*p.x,-sx*d.x,lo,hi)) return 1;
+    float yLimit=sy > 0 ? top : -100;
+    if (!HodbaClipShadowPlane(sy*(yLimit-p.y),-sy*d.y,lo,hi)) return 1;
+    float2 n=float2(-L.y,L.x);
+    float support=abs(n.x)*halfWidth+(n.y >= 0 ? n.y*top : n.y*(-100));
+    if (!HodbaClipShadowPlane(support-dot(n,p),-dot(n,d),lo,hi)) return 1;
+    n=-n;
+    support=abs(n.x)*halfWidth+(n.y >= 0 ? n.y*top : n.y*(-100));
+    if (!HodbaClipShadowPlane(support-dot(n,p),-dot(n,d),lo,hi)) return 1;
+    // HLSL boolean operators need not short-circuit: keep inout clipping
+    // inside its branch, or a non-parallel sun incorrectly clips to the box.
+    if (abs(L.x) < 1e-6)
     {
-        float3 p=lerp(eye,endpoint,(k+0.5)*0.25);
-        float height=max((p.y-_HodbaFog.w)*_HodbaFog.y,-log(max(_HodbaHaze.z,1.0)));
-        float density=lerp(exp(-height),1.0,saturate(_HodbaFog.z));
-        illuminated+=density*HodbaWallLightVisibility(p,L);
-        total+=density;
+        if (!HodbaClipShadowPlane(halfWidth+sx*p.x,sx*d.x,lo,hi)) return 1;
     }
-    return illuminated/max(total,1e-4);
+    if (abs(L.y) < 1e-6)
+    {
+        if (!HodbaClipShadowPlane(sy*(p.y-yLimit)+(top+100),sy*d.y,lo,hi)) return 1;
+    }
+    float total=HodbaFogDensityIntegral(eye.y,endpoint.y,0,1);
+    float shaded=HodbaFogDensityIntegral(eye.y,endpoint.y,lo,hi);
+    // Thin pier shadows in the air are intentionally omitted, not sampled.
+    return saturate(1-shaded/max(total,1e-8));
 }
 
 // Ореол вокруг солнца — тот же, что в Hodba/Sky.
@@ -113,19 +234,7 @@ half HodbaFogVisibility(float3 positionWS, float dist)
 {
     float density = _HodbaFog.x;
     if (density <= 0.0) return 1.0h;
-    float k = _HodbaFog.y;
-    float layer = 1.0;
-    if (k > 0.0)
-    {
-        // В низине гуще, но не больше чем в _HodbaHaze.z раз.
-        float lowest = -log(max(_HodbaHaze.z, 1.0)) / k;
-        float y0 = max(GetCameraPositionWS().y - _HodbaFog.w, lowest) * k;
-        float y1 = max(positionWS.y - _HodbaFog.w, lowest) * k;
-        float e0 = exp(-y0), e1 = exp(-y1);
-        float dy = y1 - y0;
-        float average = abs(dy) > 1e-3 ? (e0 - e1) / dy : e0;
-        layer = lerp(average, 1.0, saturate(_HodbaFog.z));
-    }
+    float layer=HodbaFogDensityIntegral(GetCameraPositionWS().y,positionWS.y,0,1);
     float tau = density * layer * dist;
     return (half)exp(-tau * tau);
 }

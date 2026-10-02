@@ -7,14 +7,18 @@ namespace Hodba.Client
 {
     /// <summary>
     /// Жесты → простые сигналы. Никакого интерфейса на экране.
-    /// Телефон: касание в нижней трети — идти/стоять; вести пальцем — взгляд; два пальца — всмотреться;
-    /// три пальца (только для разработки) — листать время суток.
-    /// Редактор: ЛКМ + мышь — взгляд; Space/W — идти/стоять; ПКМ — всмотреться; T — время суток.
+    /// Телефон: касание в нижней трети — идти/стоять; выше — тапы левой и правой половины по очереди в такт шагам (подогнать себя);
+    /// вести пальцем — взгляд; два пальца — всмотреться; три пальца (только для разработки) — листать время суток.
+    /// Редактор: ЛКМ + мышь — взгляд; Space/W — идти/стоять; Q/E — левая/правая нога; ПКМ — всмотреться; T — время суток.
     /// </summary>
     public sealed class InputReader
     {
         public Vector2 LookDegrees { get; private set; }
         public bool ToggleWalk { get; private set; }
+        /// <summary>Тап левой рукой (левая половина экрана, Q) — подогнать себя в такт шагам.</summary>
+        public bool TapLeft { get; private set; }
+        /// <summary>Тап правой рукой (правая половина экрана, E).</summary>
+        public bool TapRight { get; private set; }
         public bool Focus { get; private set; }
         public bool CycleTime { get; private set; }
         public bool Back { get; private set; }
@@ -46,6 +50,7 @@ namespace Hodba.Client
         {
             LookDegrees = Vector2.zero;
             ToggleWalk = false;
+            TapLeft = TapRight = false;
             CycleTime = false;
             Back = false;
             bool focus = false;
@@ -56,6 +61,18 @@ namespace Hodba.Client
 
             var touches = ETouch.activeTouches;
             int count = touches.Count;
+
+            // Тапы в такт — по каждому пальцу отдельно: два больших пальца чередуются внахлёст.
+            for (int i = 0; i < count; i++)
+            {
+                var t = touches[i];
+                if (t.phase != UnityEngine.InputSystem.TouchPhase.Ended) continue;
+                var start = t.startScreenPosition;
+                if (start.y < Screen.height / 3f || t.time - t.startTime >= TapMaxTime) continue;
+                if ((t.screenPosition - start).magnitude > Screen.width * TapSlopFraction) continue;
+                if (start.x < Screen.width * 0.5f) TapLeft = true;
+                else TapRight = true;
+            }
 
             if (count == 1)
             {
@@ -113,6 +130,8 @@ namespace Hodba.Client
             if (kb != null)
             {
                 if (kb.spaceKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame) ToggleWalk = true;
+                if (kb.qKey.wasPressedThisFrame) TapLeft = true;
+                if (kb.eKey.wasPressedThisFrame) TapRight = true;
                 if (kb.tKey.wasPressedThisFrame) CycleTime = true;
                 // На Android системная «назад» приходит как Escape.
                 if (kb.escapeKey.wasPressedThisFrame) Back = true;

@@ -70,11 +70,17 @@ namespace Hodba.Client
 
             var start = WorldPos.FromMeters(0, 0);
             float course = Proving ? 0f : 30f;
-            bool walking = false;
-            // Полигон всегда с начала маршрута: сохранение ему только мешает.
-            if (!Proving && config.continueFromSave && WalkerSave.TryLoad(out var saved))
+            if (_world is GreatWallWorld)
             {
-                if (_world is GreatWallWorld) saved.Position = GreatWallWorld.OutsideWall(saved.Position);
+                // Two kilometres from the nearest face of the pier at z = 0.
+                start = new WorldPos(GreatWallWorld.CenterXMm - GreatWallWorld.HalfThicknessMm
+                    - GreatWallWorld.ButtressDepthMm - 2_000_000, 0);
+                course = 90f;
+            }
+            bool walking = false;
+            // Полигон и мир со стеной всегда запускаются с заданной стартовой точки.
+            if (!Proving && !(_world is GreatWallWorld) && config.continueFromSave && WalkerSave.TryLoad(out var saved))
+            {
                 start = WalkerSave.Advance(saved, config.walk.BaseSpeed, config.backgroundMaxHours, out _, _world);
                 course = saved.Course;
                 walking = saved.Walking;
@@ -155,6 +161,10 @@ namespace Hodba.Client
 
             _gaze.Tick(_input, _sim, config, dt);
             if (_input.ToggleWalk) _sim.Apply(Intent.Toggle());
+            // Тапы в такт ногам — просьба поспешить; сколько выйдет, решает запас сил в симуляции.
+            if (_input.TapLeft) _walker.Tap(true);
+            if (_input.TapRight) _walker.Tap(false);
+            _sim.Apply(Intent.Hurry(_walker.Rhythm));
             _sim.Step(dt, _world);
 
             _origin.Tick(_sim.Position);

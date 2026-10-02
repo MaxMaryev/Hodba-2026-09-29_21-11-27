@@ -22,10 +22,17 @@ namespace Hodba.Sim.Walk
         /// <summary>Сколько скорости отнимают бугры и наносы в полную силу, доля. Стартовое значение.</summary>
         public float RoughnessDrag;
         /// <summary>
-        /// Насколько спуск мягче, чем по Тоблеру: 1 — как у Тоблера (крутой спуск почти как подъём), 0 — спуск не тормозит.
+        /// С какого спуска (уклон, доля) крутизна начинает сдерживать шаг. Положе — ноги несут: ход быстрее, чем по ровному,
+        /// и не медленнее, чем на лёгком спуске. Стартовое значение, подбирается.
+        /// </summary>
+        public float SteepDescent;
+        /// <summary>
+        /// Как резко тормозит спуск круче <see cref="SteepDescent"/>: 1 — как подъём у Тоблера, 0 — не тормозит.
         /// Стартовое значение, подбирается.
         /// </summary>
         public float DownhillEase;
+        /// <summary>Свой темп, запас сил и спешка.</summary>
+        public PaceParams Pace;
 
         public static WalkParams Default => new WalkParams
         {
@@ -36,7 +43,9 @@ namespace Hodba.Sim.Walk
             StepLength = 0.6f,
             LoosenessDrag = 0.2f,
             RoughnessDrag = 0.1f,
+            SteepDescent = 0.15f,
             DownhillEase = 0.45f,
+            Pace = PaceParams.Default,
         };
     }
 
@@ -73,6 +82,24 @@ namespace Hodba.Sim.Walk
         /// <summary>Неровность под ногами: 0 — стекло, 1 — бугры и наносы.</summary>
         public float Roughness { get; private set; }
 
+        /// <summary>Усилие прямо сейчас, 0..~1.5: ровный шаг ≈ 0.3, спешка и подъём — больше.</summary>
+        public float Effort { get; private set; }
+
+        /// <summary>
+        /// Усталость, 0..1 — обратная сторона запаса сил. Тратится, когда усилие выше посильного (спешка, подъём),
+        /// возвращается на ровном, на спуске и стоя. Высокая — человек идёт медленнее обычного и не может спешить.
+        /// </summary>
+        public float Fatigue { get; private set; }
+
+        /// <summary>Сколько просит ритм шагов, 0..1.</summary>
+        public float Hurry { get; private set; }
+
+        /// <summary>0..1 — насколько тело на самом деле подгоняет себя: просьба, урезанная запасом сил.</summary>
+        public float Haste { get; private set; }
+
+        /// <summary>Множитель своего темпа: откат от усталости и дрейф по пути (без спешки).</summary>
+        public float PaceFactor { get; private set; } = 1f;
+
         WorldPos _position;
         double _remX, _remZ; // доли миллиметра, чтобы медленная ходьба не терялась при округлении
 
@@ -92,7 +119,9 @@ namespace Hodba.Sim.Walk
                 case IntentKind.ToggleWalk: WantsWalk = !WantsWalk; break;
                 case IntentKind.SetCourse: TargetCourse = Normalize(intent.Value); break;
                 case IntentKind.SetAttention: AttentionFactor = Clamp01(intent.Value); break;
+                case IntentKind.Hurry: Hurry = Clamp01(intent.Value); break;
             }
+            if (!WantsWalk) Hurry = 0f;
         }
 
         public void Step(float dt, IWorldQuery world)
@@ -115,14 +144,25 @@ namespace Hodba.Sim.Walk
             Looseness = surface.Looseness / 65535f;
             Roughness = surface.Roughness / 65536f;
 
+            // Спешка: сколько просит ритм, столько и даёт запас сил — уставший не ускорится, сколько ни подгоняй.
+            var pace = Params.Pace;
+            float capacity = 1f - SmoothStep(pace.HurryFadeFrom, pace.HurryFadeTo, Fatigue);
+            Haste = Approach(Haste, WantsWalk ? Hurry * capacity : 0f, pace.HasteRise, pace.HasteFall, dt);
+            PaceFactor = DebtFactor(Fatigue, pace) * Drift(world.Info.Seed, pace);
+
             float target = WantsWalk
-                ? Params.BaseSpeed * SlopeFactor(Slope, Params.DownhillEase) * LoosenessFactor(Looseness, Params.LoosenessDrag)
+                ? Params.BaseSpeed * SlopeFactor(Slope, Params.SteepDescent, Params.DownhillEase) * LoosenessFactor(Looseness, Params.LoosenessDrag)
                   * LoosenessFactor(Roughness, Params.RoughnessDrag) * AttentionFactor
+                  * PaceFactor * (1f + pace.HurryGain * Haste)
                 : 0f;
             float rate = target > Speed
                 ? Params.BaseSpeed / Math.Max(0.01f, Params.AccelTime)
                 : Params.BaseSpeed / Math.Max(0.01f, Params.DecelTime);
+            float before = Speed;
             Speed = MoveTowards(Speed, target, rate * dt);
+
+            Effort = EffortOf(Speed, (Speed - before) / dt);
+            Fatigue = Clamp01(Fatigue + FatigueRate(Effort, pace) * dt);
 
             double step = Speed * dt;
             if (step <= 0) return;
@@ -159,6 +199,53 @@ namespace Hodba.Sim.Walk
             Course = TargetCourse = Normalize(course);
             WantsWalk = wantsWalk;
             Speed = wantsWalk ? Params.BaseSpeed : 0f;
+            // Фоновый путь — со своими привычками и привалами: вернулся отдохнувшим, без спешки.
+            Hurry = Haste = Fatigue = Effort = 0f;
+            PaceFactor = 1f;
+        }
+
+        /// <summary>
+        /// Усилие при этой скорости и разгоне. Ровный шаг растёт как квадрат скорости — спешка дорогая;
+        /// подъём, рыхлость и бугры добавляют пропорционально пройденному. Спуск не добавляет ничего:
+        /// под гору ноги несут сами — скорость, которую дал склон, даром, запас не тратится.
+        /// </summary>
+        float EffortOf(float speed, float accel)
+        {
+            var p = Params.Pace;
+            float r = Params.BaseSpeed > 0f ? speed / Params.BaseSpeed : 0f;
+            float carried = Slope < 0f ? Math.Max(1f, SlopeFactor(Slope, Params.SteepDescent, Params.DownhillEase)) : 1f;
+            float own = r / carried;
+            return p.BaseEffort * own * own
+                   + r * (Math.Max(0f, Slope) * p.UphillEffort + Looseness * p.LooseEffort + Roughness * p.RoughEffort)
+                   + Math.Max(0f, accel) * p.AccelEffort;
+        }
+
+        /// <summary>
+        /// Как меняется усталость, в секунду. Выше посильного — тратится пропорционально превышению;
+        /// ниже — возвращается, и тем быстрее, чем легче идти: стоя — быстрее всего.
+        /// </summary>
+        public static float FatigueRate(float effort, in PaceParams p)
+        {
+            float sustainable = Math.Max(0.01f, p.Sustainable);
+            return effort > sustainable
+                ? (effort - sustainable) / Math.Max(0.01f, p.SpendTime)
+                : -(sustainable - effort) / sustainable / Math.Max(0.01f, p.RecoverTime);
+        }
+
+        /// <summary>Откат: с какой-то усталости человек плетётся медленнее обычного.</summary>
+        public static float DebtFactor(float fatigue, in PaceParams p) => 1f - Clamp01(p.DebtSlow) * SmoothStep(p.DebtFrom, 1f, fatigue);
+
+        /// <summary>
+        /// Свой темп плавает по пути: то бодрее, то вязнет. Шум по пройденным метрам на фиксированной точке —
+        /// сервер переиграет его побитно так же.
+        /// </summary>
+        float Drift(uint seed, in PaceParams p)
+        {
+            long cellMm = (long)(p.DriftCellM * WorldPos.MmPerMeter);
+            if (p.DriftAmount <= 0f || cellMm <= 0) return 1f;
+            long mm = (long)(Distance * WorldPos.MmPerMeter);
+            float n = ValueNoise.Fbm(mm, 0, cellMm, 3, seed ^ 0x9ACE5EEDu) / (float)ValueNoise.One;
+            return 1f + n * p.DriftAmount;
         }
 
         /// <summary>
@@ -189,17 +276,20 @@ namespace Hodba.Sim.Walk
         }
 
         /// <summary>
-        /// Скорость от уклона: в гору — по Тоблеру, под гору — мягче. Тоблер считал быстрых ходоков по горным
-        /// тропам, где на крутом спуске тормозят почти как на подъёме; усталый путник по пеплу и песку
-        /// под гору идёт легче — ноги сами несут, тормозит лишь крутизна.
+        /// Скорость от уклона. В гору — по Тоблеру. Под гору ноги несут: к лёгкому спуску (−5%, пик Тоблера) ход
+        /// быстрее ровного и дальше не падает, пока спуск не станет крутым (<paramref name="steepDescent"/>).
+        /// Только круче тело начинает придерживать — мягче, чем у Тоблера: он считал быстрых ходоков по горным
+        /// тропам, а усталый путник по пеплу и песку на спуске почти не тормозит.
         /// </summary>
-        public static float SlopeFactor(float slope, float downhillEase)
+        public static float SlopeFactor(float slope, float steepDescent, float downhillEase)
         {
             const float peak = -0.05f; // у Тоблера самый быстрый ход — на лёгком спуске
             if (slope >= peak) return ToblerFactor(slope);
-            double flat = Math.Exp(-3.5 * 0.05);
+            float steep = -Math.Max(-peak, steepDescent);
+            float best = ToblerFactor(peak);
+            if (slope >= steep) return best;
             float ease = Clamp01(downhillEase);
-            return (float)(Math.Exp(-3.5 * ease * (peak - slope)) / flat);
+            return best * (float)Math.Exp(-3.5 * ease * (steep - slope));
         }
 
         /// <summary>В рыхлом часть усилия уходит в землю: нога проседает, отталкивание вязнет.</summary>
@@ -223,5 +313,19 @@ namespace Hodba.Sim.Walk
             Math.Abs(target - current) <= maxDelta ? target : current + Math.Sign(target - current) * maxDelta;
 
         static float Clamp01(float v) => v < 0f ? 0f : v > 1f ? 1f : v;
+
+        static float SmoothStep(float from, float to, float v)
+        {
+            if (to <= from) return v >= to ? 1f : 0f;
+            float t = Clamp01((v - from) / (to - from));
+            return t * t * (3f - 2f * t);
+        }
+
+        /// <summary>Экспоненциально к цели: своё время вверх и своё вниз.</summary>
+        static float Approach(float current, float target, float riseTime, float fallTime, float dt)
+        {
+            float tau = Math.Max(0.01f, target > current ? riseTime : fallTime);
+            return current + (target - current) * (1f - (float)Math.Exp(-dt / tau));
+        }
     }
 }
