@@ -31,11 +31,11 @@ namespace Hodba.Client
         }
 
         /// <param name="squint">0..1 — прищур из век.</param>
-        public void Tick(Camera camera, SkyClock clock, FieldConfig config, float dt, float squint)
+        public void Tick(Camera camera, SkyClock clock, FieldConfig config, float dt, float squint, float sunVisibility = 1f)
         {
             float el = clock.Elevation;
             var lids = config.eyelids;
-            GlareStimulus = Glare.Stimulus(camera.transform.forward, clock.SunDirection, el, lids.sunPower);
+            GlareStimulus = Glare.Stimulus(camera.transform.forward, clock.SunDirection, el, lids.sunPower, sunVisibility);
             float glare = _adaptation.Tick(GlareStimulus, squint, lids.squintGlareRelief, config.glareRise, config.glareFall, dt);
 
             if (_color != null)

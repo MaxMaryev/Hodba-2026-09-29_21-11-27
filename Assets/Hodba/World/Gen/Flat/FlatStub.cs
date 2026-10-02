@@ -19,12 +19,15 @@ namespace Hodba.World.Gen
         public FlatStub(uint seed)
         {
             _seed = seed;
-            Info = new WorldInfo(seed, 3, Id);
+            Info = new WorldInfo(seed, 4, Id);
         }
 
         public WorldInfo Info { get; }
+        public long SampleHeightMm(long xMm, long zMm) => Height(xMm, zMm, 0);
 
-        public long SampleHeightMm(long xMm, long zMm)
+        public long SampleHeightMm(long xMm, long zMm, long footprintMm) => Height(xMm, zMm, footprintMm);
+
+        long Height(long xMm, long zMm, long footprintMm)
         {
             // Пологие волны: сотни метров, до ~4 м. Даже на плато стол не мёртвый.
             long swell = (long)ValueNoise.Fbm(xMm, zMm, 420_000, 3, _seed) * 4_000 >> 16;
@@ -45,7 +48,7 @@ namespace Hodba.World.Gen
 
             int loose = Looseness(xMm, zMm, field, out _);
             Masks(xMm, zMm, loose, field, out int rippleMask, out int bumps);
-            long micro = MicroRelief.Evaluate(xMm, zMm, _seed, loose, rippleMask, bumps).HeightMm;
+            long micro = MicroRelief.Evaluate(xMm, zMm, _seed, loose, rippleMask, bumps, footprintMm).HeightMm;
 
             return swell + ripple + ridge + dunes + micro;
         }
@@ -56,7 +59,8 @@ namespace Hodba.World.Gen
             int loose = Looseness(xMm, zMm, field, out bool packed);
             Masks(xMm, zMm, loose, field, out int ripple, out int bumps);
             int roughness = MicroRelief.RoughnessOf(ripple, bumps);
-            return new SurfaceSample(packed ? SurfaceKind.PackedAsh : SurfaceKind.FineAsh, loose, roughness, ripple);
+            MicroRelief.RippleWave(xMm, zMm, _seed, ripple, out long shift, out long amplitude);
+            return new SurfaceSample(packed ? SurfaceKind.PackedAsh : SurfaceKind.FineAsh, loose, roughness, ripple, shift, amplitude);
         }
 
         /// <summary>На барханах — рябь, а не бугры: сыпучее не держит кочек.</summary>

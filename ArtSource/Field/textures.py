@@ -192,6 +192,19 @@ def metrics(albedo,height01,normal,tile_m,block_m):
         'normal_length_error':float(np.max(np.abs(np.linalg.norm(normal,axis=-1)-1))),
     }
 
+def coarse_free(a,tile_m,sigma_m=.04):
+    """Periodic high-pass keeping the mean: structure over ~25 cm repeats with the tile and
+    reads as a lattice of lines in the distance; spots at that scale come from the game's own non-tiling maps."""
+    core=a[:-1,:-1].astype(np.float32)
+    m=core.shape[0]
+    sigma=sigma_m*m/tile_m
+    fy=np.fft.fftfreq(m).astype(np.float32)[:,None]
+    fx=np.fft.rfftfreq(m).astype(np.float32)[None,:]
+    keep=1-np.exp((-2*np.pi*np.pi*sigma*sigma)*(fy*fy+fx*fx))
+    keep[0,0]=1
+    core=np.fft.irfft2(np.fft.rfft2(core)*keep,s=(m,m)).astype(np.float32)
+    return np.pad(core,((0,1),(0,1)),mode='wrap')
+
 def build_ash(n,tile_m,seed,micro=False):
     # At 1 mm/px (T1) and 0.5 mm/px (T5), the dominant grains occupy 2–20 mm.
     short,clumps=spectral_noise(n,seed,[1.8 if micro else 1.5,6 if micro else 4.5])
@@ -204,88 +217,16 @@ def build_ash(n,tile_m,seed,micro=False):
     shade=1+.024*clumps+.011*long+.066*short+.009*micrograin
     shade=shade*(1-dark)+(.48+.025*clumps)*dark
     shade=shade*(1-light)+(1.20+.015*short)*light
+    if not micro: shade=coarse_free(shade,tile_m)
     albedo=tone(rgb('B8B1A7'),shade)
     hshort,hclumps,hlong=spectral_noise(n,seed+21,[2.1 if micro else 1.8,5.5 if micro else 4.5,11 if micro else 8])
     pits=np.clip((-hclumps-.8)*.55,0,1)
     height_raw=.58*hshort+.38*hclumps+.18*hlong-.25*pits+.06*dark+.07*light
+    if not micro: height_raw=coarse_free(height_raw,tile_m)
     height=centered_height(height_raw)
     masks={'dark_coverage':float((dark[:-1,:-1]>.15).mean()),
            'light_coverage':float((light[:-1,:-1]>.15).mean())}
     return albedo,height,masks
-
-def asymmetric_ripple(phase):
-    p=phase-np.floor(phase)
-    wind=np.clip(p/.70,0,1)
-    lee=np.clip((1-p)/.30,0,1)
-    a=wind*wind*(3-2*wind)
-    b=lee*lee*(3-2*lee)
-    return np.where(p<.70,a,b).astype(np.float32)
-
-def ridge_tracks(field, cycles=40):
-    core=field[:-1,:-1]
-    m=core.shape[0]
-    period=m/cycles
-    tracks=[]; crest_heights=[]
-    rows=np.arange(m)
-    for k in range(cycles):
-        centre=(k+.70)*period
-        offsets=np.arange(-int(period*.42),int(period*.42)+1)
-        columns=(int(round(centre))+offsets)%m
-        section=core[:,columns]
-        chosen=np.argmax(section,axis=1)
-        tracks.append(centre+offsets[chosen])
-        crest_heights.append(section[rows,chosen]-section.min(axis=1))
-    return np.asarray(tracks),np.asarray(crest_heights)
-
-def ripple_metrics(height01,branch_count):
-    tracks,crests=ridge_tracks(height01)
-    shift=np.mean(tracks-tracks.mean(axis=1,keepdims=True),axis=0)
-    spectrum=np.abs(np.fft.rfft(shift))
-    frequency=int(np.argmax(spectrum[3:10]))+3
-    amplitude=2*float(spectrum[frequency])/len(shift)*(4/len(shift))
-    crest=crests*12
-    valid=crest[crest>2.5]
-    modulation=float((np.percentile(valid,90)-np.percentile(valid,10))/(2*np.mean(valid)))
-    return {'meander_wavelength_m':4/frequency,'meander_amplitude_m':amplitude,
-            'branch_count_per_m2':branch_count/16,'crest_height_modulation_fraction':modulation,
-            'ridge_height_mm':[float(np.percentile(valid,10)),float(np.percentile(valid,90))]}
-
-def ripple_defects(shape,seed):
-    core=shape[:-1,:-1].copy()
-    m=core.shape[0]
-    tracks,_=ridge_tracks(shape)
-    rng=np.random.default_rng(seed)
-    branch=np.zeros_like(core)
-    markers=np.zeros_like(core,dtype=np.uint8)
-    for k in range(40):
-        for event in range(6):
-            y0=int((event+rng.uniform(.15,.85))*m/6)%m
-            length=int(rng.uniform(.32,.52)*m/4)
-            side=rng.choice([-1,1])
-            extent=(.035+rng.uniform(-.003,.003))*m/4
-            for j in range(length):
-                y=(y0+j)%m
-                t=j/length
-                offset=side*int(round(extent*min(1,t/.37)))
-                x=int(round(tracks[k,y]+offset))%m
-                fade=min(1,t/.10,(1-t)/.17)
-                for dx in range(-3,4):
-                    value=fade*np.exp(-.5*(dx/1.65)**2)
-                    column=(x+dx)%m
-                    branch[y,column]=max(branch[y,column],value)
-            markers[y0,int(round(tracks[k,y0]))%m]=255
-        for event in range(2):
-            y0=int((event+rng.uniform(.15,.85))*m/2)%m
-            length=int(rng.uniform(.08,.15)*m/4)
-            for j in range(length):
-                y=(y0+j)%m
-                x=int(round(tracks[k,y]))%m
-                fade=.18+.82*abs(2*j/length-1)
-                for dx in range(-4,5):
-                    col=(x+dx)%m
-                    core[y,col]*=fade
-    core=np.maximum(core,branch)
-    return np.pad(core,((0,1),(0,1)),mode='wrap'),np.pad(markers,((0,1),(0,1)),mode='wrap')
 
 def longest_true_run(rows):
     longest=0
@@ -428,30 +369,6 @@ def generate():
     print('T1 ash saved',flush=True)
     x=np.linspace(0,1,n,dtype=np.float32)[None,:]
     y=np.linspace(0,1,n,dtype=np.float32)[:,None]
-    # Forty nominal cycles make a 10 cm pitch; periodic warping bends and splits ridges.
-    warp=.20*np.sin(2*np.pi*5*y+.16*np.sin(2*np.pi*x))+.055*np.sin(2*np.pi*6*y+.20*np.cos(2*np.pi*x))
-    pitch_mod=.55*noise(n,4,SEED+12)
-    phase=40*x+warp+.10*pitch_mod*np.sin(2*np.pi*2*x)
-    primary=asymmetric_ripple(phase)
-    shape,branch_markers=ripple_defects(seal(primary),SEED+13)
-    shape=seal(shape)
-    amp=.0072*(1+.30*np.sin(2*np.pi*6*y+.3*np.sin(2*np.pi*x))+.055*noise(n,5,SEED+15))
-    physical=.006+(shape-float(shape[:-1,:-1].mean()))*amp+.00014*standardized(noise(n,250,SEED+16))
-    h=seal(np.clip(physical/.012,0,1).astype(np.float32))
-    h+=.5-float(h[:-1,:-1].mean()); h=seal(np.clip(h,0,1))
-    ripple_fine=.018*standardized(noise(n,330,SEED+17))
-    albedo=tone(rgb('B8B1A7'),1+ripple_fine-.04*(shape-float(shape[:-1,:-1].mean())))
-    png(PREVIEW/'T2_Ripples_BranchMarkers.png',branch_markers/255)
-    ripple_extra=ripple_metrics(h,int(np.count_nonzero(branch_markers[:-1,:-1])))
-    ripple_extra.update({'nominal_pitch_cm':10,'wind_axis':'+U','crest_axis':'V'})
-    save_ground('T2_Ripples',albedo,h,4,12,report,ripple_extra)
-    branch_sites=np.argwhere(branch_markers[:-1,:-1]>0)
-    centre=np.array([n//2,n//2])
-    by,bx=branch_sites[np.argmin(np.sum((branch_sites-centre)**2,axis=1))]
-    y0=int(np.clip(by+75-160,0,n-320)); x0=int(np.clip(bx-160,0,n-320))
-    normal_png=decode_png(OUT/'T2_Ripples_Normal.png')
-    png(PREVIEW/'T2_Ripples_Branch_Normal_Crop320_1to1.png',normal_png[y0:y0+320,x0:x0+320])
-    print('T2 ripples saved',flush=True)
     # Periodic Voronoi plate cracks; offset coordinates add irregular fracture bends.
     wiggle_x=spectral_noise(n,SEED+20,[5.5])[0]
     wiggle_y=spectral_noise(n,SEED+21,[5.5])[0]

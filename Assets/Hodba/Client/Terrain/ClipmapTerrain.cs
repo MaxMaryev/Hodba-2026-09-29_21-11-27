@@ -21,26 +21,40 @@ namespace Hodba.Client
         static readonly int OriginId = Shader.PropertyToID("_ClipOrigin");
         static readonly int OriginNextId = Shader.PropertyToID("_ClipOriginNext");
         static readonly int ParamsId = Shader.PropertyToID("_ClipParams");
+        static readonly int VeilLayerId = Shader.PropertyToID("_VeilLayer");
+        static readonly int RippleIndexId = Shader.PropertyToID("_RippleIndex");
+        static readonly int RippleSeedId = Shader.PropertyToID("_RippleSeed");
+
+        /// <summary>Мелкая рябь — только картинка: длина и клетка гребня вдоль него, как в HodbaRipple.hlsl.</summary>
+        public const long FineRippleLengthMm = 100, FineCrestCellMm = 800;
+
+        const int MaxVeilLevels = 3;
+        const int MaxVeilLayers = 3;
 
         readonly IWorldQuery _world;
         readonly FloatingOrigin _origin;
         readonly FieldConfig _config;
         readonly Material _material;
+        readonly Material _veilMaterial;
         readonly Mesh _mesh;
         readonly ClipmapLevel[] _levels;
         readonly Texture2D[] _heights, _surfaces;
         readonly MaterialPropertyBlock[] _props;
+        readonly MaterialPropertyBlock[] _veilProps = new MaterialPropertyBlock[MaxVeilLevels * MaxVeilLayers];
         readonly long[] _ox, _oz;
         readonly long _spacing0;
 
         public int LevelCount => _levels.Length;
 
-        public ClipmapTerrain(IWorldQuery world, FloatingOrigin origin, FieldConfig config, Material material)
+        /// <param name="veilMaterial">Взвесь над ближними кольцами (Hodba/SandVeil). Пусто — взвеси нет.</param>
+        public ClipmapTerrain(IWorldQuery world, FloatingOrigin origin, FieldConfig config, Material material, Material veilMaterial = null)
         {
             _world = world;
             _origin = origin;
             _config = config;
             _material = material;
+            _veilMaterial = veilMaterial;
+            for (int i = 0; i < _veilProps.Length; i++) _veilProps[i] = new MaterialPropertyBlock();
             _mesh = ClipmapMesh.Build();
 
             int count = Mathf.Clamp(config.clipLevels, 1, 16);
@@ -69,10 +83,11 @@ namespace Hodba.Client
             };
 
         /// <summary>Досчитать и нарисовать. Зовётся каждый кадр.</summary>
-        public void Tick(WorldPos focus)
+        /// <param name="veil">Сила взвеси (SandDrift.Veil): в штиль оболочки не рисуются вовсе.</param>
+        public void Tick(WorldPos focus, float veil = 0f)
         {
             Update(focus);
-            Draw();
+            Draw(veil);
         }
 
         /// <summary>Встать вокруг точки: только досчитать въехавшее (при телепорте — всё).</summary>
@@ -90,24 +105,21 @@ namespace Hodba.Client
             }
         }
 
-        void Draw()
+        void Draw(float veil)
         {
             if (_material == null) return;
             int shadowLevels = Mathf.Clamp(_config.clipShadowLevels, 0, _levels.Length);
+            // Прозрачный фрагмент с нулевой альфой стоит столько же — в штиль взвеси нет ни одного вызова.
+            bool veilOn = _veilMaterial != null && veil > 0f && _config.saltationTexture != null;
+            int veilLevels = veilOn ? Mathf.Clamp(_config.veilLevels, 0, Mathf.Min(MaxVeilLevels, _levels.Length)) : 0;
+            int veilLayers = Mathf.Clamp(_config.veilLayers, 0, MaxVeilLayers);
             for (int l = 0; l < _levels.Length; l++)
             {
                 var level = _levels[l];
                 bool hasNext = l + 1 < _levels.Length;
                 int next = hasNext ? l + 1 : l;
                 var p = _props[l];
-                p.SetTexture(HeightId, _heights[l]);
-                p.SetTexture(SurfaceId, _surfaces[l]);
-                p.SetTexture(HeightNextId, _heights[next]);
-                p.SetTexture(SurfaceNextId, _surfaces[next]);
-                p.SetVector(OriginId, Corner(level));
-                p.SetVector(OriginNextId, Corner(_levels[next]));
-                p.SetVector(ParamsId, new Vector4(level.SpacingMm / 1000f, ClipmapLevel.Grid,
-                    Mathf.Clamp(_config.clipMorph, 1f, ClipmapLevel.HoleStart - 2f), hasNext ? 1f : 0f));
+                Fill(p, l, next, hasNext);
 
                 int submesh = l == 0
                     ? ClipmapMesh.Submesh(-1, -1)
@@ -123,7 +135,60 @@ namespace Hodba.Client
                     worldBounds = new Bounds(Vector3.zero, Vector3.one * 100000f),
                 };
                 Graphics.RenderMesh(rp, _mesh, submesh, Matrix4x4.identity);
+
+                if (l >= veilLevels) continue;
+                for (int k = 0; k < veilLayers; k++)
+                {
+                    var vp = _veilProps[l * MaxVeilLayers + k];
+                    Fill(vp, l, next, hasNext);
+                    vp.SetVector(VeilLayerId, new Vector4(k, 0f, 0f, 0f));
+                    var veilParams = new RenderParams(_veilMaterial)
+                    {
+                        matProps = vp,
+                        shadowCastingMode = ShadowCastingMode.Off,
+                        receiveShadows = true,
+                        worldBounds = rp.worldBounds,
+                    };
+                    Graphics.RenderMesh(veilParams, _mesh, submesh, Matrix4x4.identity);
+                }
             }
+        }
+
+        void Fill(MaterialPropertyBlock p, int l, int next, bool hasNext)
+        {
+            var level = _levels[l];
+            p.SetTexture(HeightId, _heights[l]);
+            p.SetTexture(SurfaceId, _surfaces[l]);
+            p.SetTexture(HeightNextId, _heights[next]);
+            p.SetTexture(SurfaceNextId, _surfaces[next]);
+            p.SetVector(OriginId, Corner(level));
+            p.SetVector(OriginNextId, Corner(_levels[next]));
+            p.SetVector(ParamsId, new Vector4(level.SpacingMm / 1000f, ClipmapLevel.Grid,
+                Mathf.Clamp(_config.clipMorph, 1f, ClipmapLevel.HoleStart - 2f), hasNext ? 1f : 0f));
+            p.SetVector(RippleIndexId, RippleIndex());
+            p.SetVector(RippleSeedId, RippleSeed());
+        }
+
+        /// <summary>
+        /// Номера гребней и клеток вдоль них у центра мира — шейдер прибавляет к ним локальные (HodbaRipple.hlsl).
+        /// Центр переносится шагом, кратным всем длинам и клеткам; номера по модулю 2^20 точны во float.
+        /// </summary>
+        Vector4 RippleIndex()
+        {
+            var o = _origin.Origin;
+            return new Vector4(
+                Index(o.X, SurfaceSample.RippleLengthMm), Index(o.Z, World.Gen.MicroRelief.CrestCellMm),
+                Index(o.X, FineRippleLengthMm), Index(o.Z, FineCrestCellMm));
+        }
+
+        static float Index(long mm, long cell) => WorldPos.FloorDiv(mm, cell) & World.Gen.MicroRelief.CrestIndexMask;
+
+        /// <summary>Начало хэша гребней (Hash.Cell) по 16 бит: крупная — как в мире (MicroRelief.CrestMask), мелкая — своя.</summary>
+        Vector4 RippleSeed()
+        {
+            uint mega = unchecked((_world.Info.Seed + 281u) * 0x9E3779B9u);
+            uint fine = unchecked((_world.Info.Seed + 283u) * 0x9E3779B9u);
+            return new Vector4(mega & 0xFFFF, mega >> 16, fine & 0xFFFF, fine >> 16);
         }
 
         /// <summary>Угол кольца в локальных координатах (xy) и его кольцевой адрес в текстуре (zw).</summary>

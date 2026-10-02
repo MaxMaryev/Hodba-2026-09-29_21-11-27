@@ -83,21 +83,33 @@ namespace Hodba.Editor
             var grain = TextureGen.Grain(Generated + "/T_Grain.png");
             var dustShadow = TextureGen.DustShadow(Generated + "/T_DustShadow.png");
             var saltation = TextureGen.Saltation(Generated + "/T_Saltation.png");
+            var rippleNoise = TextureGen.RippleNoise(Generated + "/T_RippleNoise.png");
 
             EditorUtility.DisplayProgressBar("Hodba", "Материалы", 0.5f);
             var ground = Mat("M_Ground", "Hodba/Ground", m =>
             {
                 m.SetTexture("_MacroTex", macro);
                 m.SetTexture("_VariationTex", variation);
+                m.SetTexture("_RippleNoise", rippleNoise);
             });
             var sky = Mat("M_Sky", "Hodba/Sky", null);
-            var dust = Mat("M_Dust", "Hodba/Dust", m => m.SetTexture("_MainTex", dot));
-            // Песчинки у ног: тонкий штрих, свечение против солнца слабее, чем у пылинок.
+            var wall = Mat("M_GreatWall", "Hodba/GreatWall", null);
+            // Пылинки и песок в лицо гаснут только вплотную к глазу: налёт порыва летит в 2–6 м, а не за полтора метра.
+            var nearFade = new Vector4(0.1f, 0.2f, 0f, 0f);
+            var dust = Mat("M_Dust", "Hodba/Dust", m =>
+            {
+                m.SetTexture("_MainTex", dot);
+                m.SetFloat("_Scatter", 0.8f);
+                m.SetVector("_NearFade", nearFade);
+            });
+            // Песчинки у ног: компактные зёрна с умеренным рассеянием света.
             var spray = Mat("M_SandSpray", "Hodba/Dust", m =>
             {
                 m.SetTexture("_MainTex", grain);
-                m.SetFloat("_Scatter", 1.5f);
+                m.SetFloat("_Scatter", 0.6f);
+                m.SetVector("_NearFade", nearFade);
             });
+            var veil = Mat("M_SandVeil", "Hodba/SandVeil", null);
             var volume = SetupVolume();
 
             EditorUtility.DisplayProgressBar("Hodba", "Конфиг и арт-пак", 0.7f);
@@ -109,8 +121,10 @@ namespace Hodba.Editor
             }
             config.groundMaterial = ground;
             config.skyMaterial = sky;
+            config.greatWallMaterial = wall;
             config.dustMaterial = dust;
             config.sprayMaterial = spray;
+            config.sandVeilMaterial = veil;
             config.dustShadowTexture = dustShadow;
             config.saltationTexture = saltation;
             config.volumeProfile = volume;

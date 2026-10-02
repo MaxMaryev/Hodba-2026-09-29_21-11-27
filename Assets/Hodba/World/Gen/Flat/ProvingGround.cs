@@ -26,12 +26,16 @@ namespace Hodba.World.Gen
         public ProvingGround(uint seed)
         {
             _seed = seed;
-            Info = new WorldInfo(seed, 2, Id);
+            Info = new WorldInfo(seed, 3, Id);
         }
 
         public WorldInfo Info { get; }
 
-        public long SampleHeightMm(long xMm, long zMm)
+        public long SampleHeightMm(long xMm, long zMm) => Height(xMm, zMm, 0);
+
+        public long SampleHeightMm(long xMm, long zMm, long footprintMm) => Height(xMm, zMm, footprintMm);
+
+        long Height(long xMm, long zMm, long footprintMm)
         {
             long h = 0;
 
@@ -47,7 +51,7 @@ namespace Hodba.World.Gen
             h += Dune(zMm);
 
             var s = SampleSurface(xMm, zMm);
-            h += MicroRelief.Evaluate(xMm, zMm, _seed, s.Looseness, s.Ripple, Bumps(zMm)).HeightMm;
+            h += MicroRelief.Evaluate(xMm, zMm, _seed, s.Looseness, s.Ripple, Bumps(zMm), footprintMm).HeightMm;
             return h;
         }
 
@@ -58,18 +62,24 @@ namespace Hodba.World.Gen
             if (zMm < LooseEnd)
             {
                 int ripple = MicroRelief.SmoothQ(Math.Min(zMm - HardEnd, LooseEnd - zMm), 0, Blend);
-                return new SurfaceSample(SurfaceKind.FineAsh, 55_000, MicroRelief.RoughnessOf(ripple, 0), ripple);
+                return Rippled(xMm, zMm, 55_000, ripple, 0);
             }
 
             if (zMm >= DuneStart - Blend && zMm < DuneEnd + Blend)
             {
                 // Бархан — сыпучий, в ряби.
                 int ripple = MicroRelief.SmoothQ(Math.Min(zMm - (DuneStart - Blend), DuneEnd + Blend - zMm), 0, Blend);
-                return new SurfaceSample(SurfaceKind.FineAsh, 58_000, MicroRelief.RoughnessOf(ripple, 0), ripple);
+                return Rippled(xMm, zMm, 58_000, ripple, 0);
             }
 
             int bumps = Bumps(zMm);
             return new SurfaceSample(SurfaceKind.PackedAsh, 20_000, MicroRelief.RoughnessOf(0, bumps), 0);
+        }
+
+        SurfaceSample Rippled(long xMm, long zMm, int looseness, int ripple, int bumps)
+        {
+            MicroRelief.RippleWave(xMm, zMm, _seed, ripple, out long shift, out long amplitude);
+            return new SurfaceSample(SurfaceKind.FineAsh, looseness, MicroRelief.RoughnessOf(ripple, bumps), ripple, shift, amplitude);
         }
 
         /// <summary>Бугры — только на плато за подъёмом.</summary>

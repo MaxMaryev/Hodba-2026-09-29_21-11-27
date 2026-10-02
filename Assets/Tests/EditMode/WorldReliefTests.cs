@@ -133,7 +133,7 @@ namespace Hodba.Tests
             Assert.That(worst, Is.LessThan(10_000), "не по линии, а полосой");
         }
 
-        /// <summary>Картинка = ощущение: в кольце земли ровно то, что мир говорит о высоте и поверхности.</summary>
+        /// <summary>Кольцо рисует высоту с шагом сетки и ту поверхность, которую мир отдаёт шейдеру.</summary>
         [Test]
         public void Ground_ShowsWhatTheFeetFeel()
         {
@@ -143,7 +143,7 @@ namespace Hodba.Tests
             for (long gz = -2_001; gz <= -2_000 + ClipmapLevel.Grid; gz += 7)
             for (long gx = 3_999; gx <= 4_000 + ClipmapLevel.Grid; gx += 5)
             {
-                Assert.AreEqual(w.SampleHeightMm(gx * 250, gz * 250) / 1000f, level.HeightAt(gx, gz));
+                Assert.AreEqual(w.SampleHeightMm(gx * 250, gz * 250, level.SpacingMm) / 1000f, level.HeightAt(gx, gz));
                 Assert.AreEqual(ClipmapLevel.SurfaceColor(w.SampleSurface(gx * 250, gz * 250)),
                     level.Surface[ClipmapLevel.Texel(gx, gz)]);
             }

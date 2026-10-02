@@ -1,12 +1,12 @@
 // Пепел. Земля — кольца вокруг путника (геометрические клипмапы): вершины сетки — целые координаты,
 // высоту и поверхность каждой вершины шейдер берёт из текстур кольца (кольцевая адресация, см. ClipmapTerrain).
 // У внешнего края кольцо плавно перетекает в следующее, более крупное — без щелей.
-// Где пепел, а где слежавшаяся корка, решает мир (r — рыхлость, g — рябь, b — неровность),
-// чтобы земля выглядела так, как её чувствуют ноги. Рябь-нормаль — там, где рябь есть в мире.
-// Все тайлы делят 4096 м — иначе при переносе плавающего центра рисунок прыгнет.
-// Цвет и рельеф — арт Т1 (пепел), Т2 (рябь), Т3 (корка) напрямую; варианты тайла разбивают повтор.
+// Где пепел, а где слежавшаяся корка, решает мир (r — рыхлость, g — рябь, b — сдвиг гребней, a — амплитуда),
+// чтобы земля выглядела так, как её чувствуют ноги. Крупная рябь рисуется светом по тем же гребням.
+// Мелкая рябь — одна выборка шума (HodbaRipple.hlsl). Все тайлы делят 4096 м — иначе при переносе плавающего центра рисунок прыгнет.
+// Цвет и рельеф — арт Т1 (пепел) и Т3 (корка); варианты тайла сдвигают его, Т1 без крупных пятен — повтор не виден вдали.
 // Свет шершавый (Орен — Найяр), в зерне и трещинах — микротени из альфы альбедо (запекает генератор текстур);
-// дымка и тени пыльных облаков — общие с небом и камнями (HodbaAtmosphere.hlsl); там же позёмка — песок, бегущий по ветру.
+// дымка и тени пыльных облаков — общие с небом и камнями (HodbaAtmosphere.hlsl); позёмка — песок, бегущий по ветру (HodbaSand.hlsl).
 Shader "Hodba/Ground"
 {
     Properties
@@ -19,10 +19,11 @@ Shader "Hodba/Ground"
         _PackedTile ("Корка: метров на тайл", Float) = 4
         [NoScaleOffset][Normal] _PackedNormal ("Корка: нормали (трещины)", 2D) = "bump" {}
         _PackedNormalStrength ("Сила нормалей корки", Range(0, 2)) = 1
-        [NoScaleOffset][Normal] _RippleNormal ("Рябь (Т2)", 2D) = "bump" {}
-        _RippleTile ("Рябь: метров на тайл", Float) = 4
-        _RippleStrength ("Сила ряби", Range(0, 2)) = 0.9
-        _RippleFadeDistance ("Рябь видна до, м", Float) = 70
+        [NoScaleOffset] _RippleNoise ("Мелкая рябь: изгиб, его наклон, маска гребней (64 м)", 2D) = "gray" {}
+        _RippleStrength ("Сила мелкой ряби", Range(0, 2)) = 0.9
+        _MegaRippleStrength ("Сила крупной ряби", Range(0, 2)) = 1
+        _MegaRippleFadeDistance ("Крупная рябь видна до, м", Float) = 40
+        _RippleFadeDistance ("Мелкая рябь видна до, м", Float) = 70
         [NoScaleOffset] _MacroTex ("Крупные пятна", 2D) = "gray" {}
         _MacroTile ("Пятна: метров на тайл", Float) = 512
         _MacroContrast ("Контраст пятен", Range(0, 4)) = 1.8
@@ -34,7 +35,6 @@ Shader "Hodba/Ground"
         _DetailVar ("Вариация силы деталей", Range(0, 1)) = 0.35
         _FadePxStart ("Полные детали: пикселей на тайл", Float) = 64
         _FadePxEnd ("Средний цвет: пикселей на тайл", Float) = 8
-        _RipplePeriods ("Гребней ряби на тайл", Float) = 40
         _Wrap ("Мягкость света", Range(0, 1)) = 0.1
         _RoughNear ("Шероховатость вблизи", Range(0, 1)) = 0.6
         _RoughFar ("Шероховатость вдали (зерна уже не видно)", Range(0, 1)) = 0.9
@@ -53,8 +53,9 @@ Shader "Hodba/Ground"
             float _PackedTile;
             half _AshNormalStrength;
             half _PackedNormalStrength;
-            float _RippleTile;
             half _RippleStrength;
+            half _MegaRippleStrength;
+            float _MegaRippleFadeDistance;
             float _RippleFadeDistance;
             float _MacroTile;
             half _MacroContrast;
@@ -65,85 +66,13 @@ Shader "Hodba/Ground"
             half _DetailVar;
             float _FadePxStart;
             float _FadePxEnd;
-            float _RipplePeriods;
             half _Wrap;
             half _RoughNear;
             half _RoughFar;
             half _AOStrength;
         CBUFFER_END
 
-        // Кольцо — на каждый вызов отрисовки свои (MaterialPropertyBlock).
-        TEXTURE2D(_ClipHeight);
-        TEXTURE2D(_ClipSurface);
-        TEXTURE2D(_ClipHeightNext);
-        TEXTURE2D(_ClipSurfaceNext);
-        float4 _ClipOrigin;     // xy — угол кольца (локальные xz), zw — его кольцевой адрес в текстуре
-        float4 _ClipOriginNext; // то же для следующего, более крупного кольца
-        float4 _ClipParams;     // x — шаг, м; y — вершин по стороне; z — ширина перетекания, клеток; w — есть ли следующее
-
-        #define CLIP_SIZE 128
-
-        int2 ClipWrap(int2 t) { return t & (CLIP_SIZE - 1); }
-
-        struct GroundVertex
-        {
-            float3 positionWS;
-            float3 normalWS;
-            half3 surface;
-        };
-
-        GroundVertex ClipVertex(float3 positionOS)
-        {
-            float s = _ClipParams.x;
-            int2 g = int2(round(positionOS.xz));
-            int2 t = g + int2(_ClipOrigin.zw);
-
-            float h = LOAD_TEXTURE2D(_ClipHeight, ClipWrap(t)).r;
-            half3 surface = LOAD_TEXTURE2D(_ClipSurface, ClipWrap(t)).rgb;
-            float hl = LOAD_TEXTURE2D(_ClipHeight, ClipWrap(t + int2(-1, 0))).r;
-            float hr = LOAD_TEXTURE2D(_ClipHeight, ClipWrap(t + int2(1, 0))).r;
-            float hd = LOAD_TEXTURE2D(_ClipHeight, ClipWrap(t + int2(0, -1))).r;
-            float hu = LOAD_TEXTURE2D(_ClipHeight, ClipWrap(t + int2(0, 1))).r;
-            float3 normal = float3(hl - hr, 2.0 * s, hd - hu);
-
-            float2 xz = _ClipOrigin.xy + float2(g) * s;
-
-            // У внешнего края — плавно в следующее кольцо: там вершины ложатся ровно на его треугольники.
-            float c = (_ClipParams.y - 1.0) * 0.5;
-            float d = max(abs(g.x - c), abs(g.y - c));
-            float a = saturate((d - (c - _ClipParams.z)) / _ClipParams.z) * _ClipParams.w;
-            UNITY_BRANCH
-            if (a > 0.0)
-            {
-                float s2 = 2.0 * s;
-                float2 f = (xz - _ClipOriginNext.xy) / s2;
-                int2 i0 = int2(floor(f));
-                float2 fr = f - float2(i0);
-                int2 tn = i0 + int2(_ClipOriginNext.zw);
-                float h00 = LOAD_TEXTURE2D(_ClipHeightNext, ClipWrap(tn)).r;
-                float h10 = LOAD_TEXTURE2D(_ClipHeightNext, ClipWrap(tn + int2(1, 0))).r;
-                float h01 = LOAD_TEXTURE2D(_ClipHeightNext, ClipWrap(tn + int2(0, 1))).r;
-                float h11 = LOAD_TEXTURE2D(_ClipHeightNext, ClipWrap(tn + int2(1, 1))).r;
-                half3 s00 = LOAD_TEXTURE2D(_ClipSurfaceNext, ClipWrap(tn)).rgb;
-                half3 s10 = LOAD_TEXTURE2D(_ClipSurfaceNext, ClipWrap(tn + int2(1, 0))).rgb;
-                half3 s01 = LOAD_TEXTURE2D(_ClipSurfaceNext, ClipWrap(tn + int2(0, 1))).rgb;
-                half3 s11 = LOAD_TEXTURE2D(_ClipSurfaceNext, ClipWrap(tn + int2(1, 1))).rgb;
-
-                float hc = lerp(lerp(h00, h10, fr.x), lerp(h01, h11, fr.x), fr.y);
-                half3 sc = lerp(lerp(s00, s10, fr.x), lerp(s01, s11, fr.x), fr.y);
-                float3 nc = float3(-(h10 - h00 + h11 - h01) * 0.5, s2, -(h01 - h00 + h11 - h10) * 0.5);
-
-                h = lerp(h, hc, a);
-                surface = lerp(surface, sc, a);
-                normal = lerp(normalize(normal), normalize(nc), a);
-            }
-
-            GroundVertex o;
-            o.positionWS = float3(xz.x, h, xz.y);
-            o.normalWS = normalize(normal);
-            o.surface = surface;
-            return o;
-        }
+        #include "HodbaClipmap.hlsl"
         ENDHLSL
 
         Pass
@@ -161,12 +90,14 @@ Shader "Hodba/Ground"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "HodbaAtmosphere.hlsl"
+            #include "HodbaSand.hlsl"
+            #include "HodbaRipple.hlsl"
 
             TEXTURE2D(_AshAlbedo);     SAMPLER(sampler_AshAlbedo);
             TEXTURE2D(_PackedAlbedo);  SAMPLER(sampler_PackedAlbedo);
             TEXTURE2D(_AshNormal);     SAMPLER(sampler_AshNormal);
             TEXTURE2D(_PackedNormal);  SAMPLER(sampler_PackedNormal);
-            TEXTURE2D(_RippleNormal);  SAMPLER(sampler_RippleNormal);
+            TEXTURE2D(_RippleNoise);   SAMPLER(sampler_RippleNoise);
             TEXTURE2D(_MacroTex);      SAMPLER(sampler_MacroTex);
             TEXTURE2D(_VariationTex);  SAMPLER(sampler_VariationTex);
 
@@ -180,7 +111,8 @@ Shader "Hodba/Ground"
                 float4 positionCS : SV_POSITION;
                 float3 positionWS : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
-                half3 surface : TEXCOORD3;
+                // float: наклон сдвига гребней берётся из экранных производных, half их бы раскрошил.
+                float4 surface : TEXCOORD3;
             };
 
             Varyings vert(Attributes v)
@@ -257,7 +189,8 @@ Shader "Hodba/Ground"
             {
                 float2 wp = i.positionWS.xz + _HodbaOriginMod.xy;
                 float dist = distance(i.positionWS, GetCameraPositionWS());
-                float2 dx = ddx(wp), dy = ddy(wp);
+                // Производные — от локальных координат: wp доходит до 4096 м, и у ног его разности тонут в округлении.
+                float2 dx = ddx(i.positionWS.xz), dy = ddy(i.positionWS.xz);
                 float fw = max(length(dx), length(dy));
                 float ashTile = max(_AshTile, 0.001), packedTile = max(_PackedTile, 0.001);
                 half3 variation = SAMPLE_TEXTURE2D_GRAD(_VariationTex, sampler_VariationTex, wp / 128.0, dx / 128.0, dy / 128.0).rgb;
@@ -310,21 +243,29 @@ Shader "Hodba/Ground"
 
                 // Позёмка: бегущий песок светлее и накрывает рябь и зерно.
                 half salt = HodbaSaltation(i.positionWS, dist, dx, dy, i.surface.r, normalize(i.normalWS));
-                albedo = lerp(albedo, _HodbaSaltationColor.rgb, salt * _HodbaSaltation.w);
+                albedo = lerp(albedo, _SandDriftColor.rgb, salt * _SandDrift.w);
                 half buried = 1.0h - 0.8h * salt;
 
-                // Рябь — там, где она есть в мире, и вблизи; вдали только мерцала бы.
-                half rippleAmount = _RippleStrength * saturate(1.0 - dist / _RippleFadeDistance) * i.surface.g * buried;
-                float rippleTile = max(_RippleTile, 0.001);
-                float wavelength = rippleTile / max(_RipplePeriods, 1.0);
-                float fx = max(abs(dx.x), abs(dy.x));
-                rippleAmount *= smoothstep(2.0, 6.0, wavelength / max(fx, 0.000001));
-                // Зерно пепла и трещины корки — вблизи, дальше они тоньше пикселя.
-                half grainFade = saturate(1.0 - dist / 30.0) * buried;
-                half3 rn = half3(0.0h, 0.0h, 1.0h), gn = half3(0.0h, 0.0h, 1.0h);
+                // Крупная рябь — та же волна, что под ногами. Мелкая гаснет к 70 м; обе — пока волна шире 2–6 пикселей.
+                float rippleX = i.positionWS.x;
+                float footprintX = max(abs(dx.x), abs(dy.x));
+                float shift = HodbaRippleShift(i.surface.b);
+                float2 shiftSlope = HodbaWorldGrad(shift, dx, dy);
+                float megaAmp = i.surface.a * 0.030 * _MegaRippleStrength * buried
+                    * (1.0 - smoothstep(0.4 * _MegaRippleFadeDistance, _MegaRippleFadeDistance, dist))
+                    * HodbaRippleVisible(HodbaMegaRippleLength, footprintX);
+                float2 rippleSlope = HodbaMegaRipple(rippleX, i.positionWS.z, shift, shiftSlope, megaAmp);
+                half rippleAmount = _RippleStrength * saturate(1.0 - dist / _RippleFadeDistance) * i.surface.g * buried
+                    * HodbaRippleVisible(HodbaFineRippleLength, footprintX);
                 UNITY_BRANCH
                 if (rippleAmount > 0.0h)
-                    rn = UnpackNormalScale(SAMPLE_TEXTURE2D_GRAD(_RippleNormal, sampler_RippleNormal, wp / rippleTile, dx / rippleTile, dy / rippleTile), rippleAmount);
+                {
+                    half4 noise = SAMPLE_TEXTURE2D_GRAD(_RippleNoise, sampler_RippleNoise, wp / 64.0, dx / 64.0, dy / 64.0);
+                    rippleSlope += HodbaFineRipple(rippleX, i.positionWS.z, shift, shiftSlope, noise, rippleAmount * 0.008);
+                }
+                // Зерно пепла и трещины корки — вблизи, дальше они тоньше пикселя.
+                half grainFade = saturate(1.0 - dist / 30.0) * buried;
+                half3 rn = half3(rippleSlope, 1.0h), gn = half3(0.0h, 0.0h, 1.0h);
                 UNITY_BRANCH
                 if (grainFade > 0.0h)
                 {
@@ -354,9 +295,10 @@ Shader "Hodba/Ground"
                 Light light = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half diffuse = HodbaRoughDiffuse(n, light.direction, V, rough, _Wrap);
                 half shade = light.shadowAttenuation * light.distanceAttenuation
-                    * HodbaMicroShadow(ao, dot(n, light.direction)) * HodbaDustShadow(i.positionWS);
+                    * HodbaMicroShadow(ao, dot(n, light.direction)) * HodbaDustShadow(i.positionWS)
+                    * HodbaWallLightVisibility(i.positionWS+n*0.2,light.direction);
                 half3 direct = light.color * (diffuse * shade);
-                half3 ambient = SampleSH(n) * ao;
+                half3 ambient = HodbaWallAmbientLight(SampleSH(n),i.positionWS,n,light.direction) * ao;
 
                 half3 color = albedo * (direct + ambient);
                 color = HodbaApplyFog(color, i.positionWS);
@@ -386,7 +328,8 @@ Shader "Hodba/Ground"
             ENDHLSL
         }
 
-        // Тени отбрасывают только ближние кольца (ClipmapTerrain): рябь и бугры у ног на рассвете.
+        // Тени отбрасывают только ближние кольца (ClipmapTerrain): бугры у ног на рассвете.
+        // Гребней ряби в меше нет — их затеняет нормаль.
         Pass
         {
             Name "ShadowCaster"

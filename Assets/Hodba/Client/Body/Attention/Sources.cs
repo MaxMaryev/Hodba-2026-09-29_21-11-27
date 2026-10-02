@@ -111,7 +111,7 @@ namespace Hodba.Client.Body
             List<GazeCandidate> into)
         {
             var head = ctx.HeadForward;
-            float sun = Glare.Stimulus(head, ctx.SunDirection, ctx.SunElevation, 4f);
+            float sun = Glare.Stimulus(head, ctx.SunDirection, ctx.SunElevation, 4f, ctx.SunVisibility);
             if (sun > 0.05f)
             {
                 float sunYaw = Mathf.Atan2(ctx.SunDirection.x, ctx.SunDirection.z) * Mathf.Rad2Deg;

@@ -5,9 +5,13 @@
 // Все глобальные значения ставят SkyController и DustShadows; пока их нет — тумана и теней облаков нет.
 #ifndef HODBA_ATMOSPHERE_INCLUDED
 #define HODBA_ATMOSPHERE_INCLUDED
+#define HODBA_WALL_LIGHTING
 
 float4 _HodbaOriginMod;
 float4 _HodbaSunDir;
+float _HodbaSunOcclusion;   // 0 by default; 1 when the sun is hidden from the eye
+float4 _HodbaWall;          // local centre X, half thickness, panel top, enabled
+float4 _HodbaWallDetails;   // pier depth, half width, bay length, pier top
 half4 _HodbaSunColor;
 half4 _HodbaGlowColor;      // ореол солнца, как в небе: цвет солнца × _SunGlow
 float4 _HodbaFog;           // x — плотность (exp²), y — 1/высота слоя, м; z — доля тумана без высоты; w — уровень слоя, м
@@ -23,11 +27,76 @@ float3 HodbaSunDirection()
     return s * rsqrt(max(dot(s, s), 1e-8));
 }
 
+bool HodbaWallRayAxis(float p, float d, float lo, float hi, inout float nearT, inout float farT)
+{
+    if (abs(d) < 1e-6) return p >= lo && p <= hi;
+    float a = (lo-p)/d, b = (hi-p)/d;
+    nearT=max(nearT,min(a,b)); farT=min(farT,max(a,b));
+    return nearT <= farT;
+}
+
+bool HodbaWallRayInterval(float3 p, float3 L, float halfWidth, float top, out float nearT, out float farT)
+{
+    nearT=0; farT=1e20;
+    return HodbaWallRayAxis(p.x-_HodbaWall.x,L.x,-halfWidth,halfWidth,nearT,farT)
+        && HodbaWallRayAxis(p.y,L.y,-100,top,nearT,farT) && farT > 0.001;
+}
+
+// Analytic solid-wall shadow: works beyond URP's short cascades and on airborne dust.
+half HodbaWallLightVisibility(float3 p, float3 L)
+{
+    if (_HodbaWall.w < 0.5 || dot(L,L) < 1e-8) return 1;
+    float nearT, farT;
+    if (HodbaWallRayInterval(p,L,_HodbaWall.y,_HodbaWall.z,nearT,farT)) return 0;
+    if (!HodbaWallRayInterval(p,L,_HodbaWall.y+_HodbaWallDetails.x,_HodbaWallDetails.w,nearT,farT)) return 1;
+    float z=p.z+_HodbaOriginMod.y, period=max(_HodbaWallDetails.z,1), halfWidth=_HodbaWallDetails.y;
+    if (abs(L.z) < 1e-6) return abs(z-round(z/period)*period) <= halfWidth ? 0 : 1;
+    if (farT > 1e19) return 0;
+    float a=z+L.z*nearT, b=z+L.z*farT;
+    return ceil((min(a,b)-halfWidth)/period)*period <= max(a,b)+halfWidth ? 0 : 1;
+}
+
+// Infinite vertical plane's angular obstruction; outward-facing walls retain open sky.
+half HodbaWallAmbientOcclusion(float3 p, float3 n)
+{
+    if (_HodbaWall.w < 0.5) return 1;
+    float height=max(_HodbaWallDetails.w-p.y,0);
+    float distance=max(abs(p.x-_HodbaWall.x)-_HodbaWall.y,0.1);
+    float blocked=atan2(height,distance)/PI;
+    float toward=sign(_HodbaWall.x-p.x);
+    float facing=saturate(0.55+0.45*n.x*toward);
+    return saturate(1-blocked*facing*1.65);
+}
+
+half3 HodbaWallAmbientLight(half3 ambient, float3 p, float3 n, float3 L)
+{
+    half lit=HodbaWallLightVisibility(p+n*0.2,L);
+    // Shaded sand contributes less warm bounce; diffuse blue sky light remains.
+    half3 bounce=lerp(half3(0.58,0.70,0.85),half3(1,1,1),lit);
+    return ambient*bounce*HodbaWallAmbientOcclusion(p,n);
+}
+
+half HodbaFogLightVisibility(float3 eye, float3 endpoint)
+{
+    if (_HodbaWall.w < 0.5) return 1;
+    float total=0, illuminated=0;
+    float3 L=HodbaSunDirection();
+    [unroll] for (int k=0;k<4;k++)
+    {
+        float3 p=lerp(eye,endpoint,(k+0.5)*0.25);
+        float height=max((p.y-_HodbaFog.w)*_HodbaFog.y,-log(max(_HodbaHaze.z,1.0)));
+        float density=lerp(exp(-height),1.0,saturate(_HodbaFog.z));
+        illuminated+=density*HodbaWallLightVisibility(p,L);
+        total+=density;
+    }
+    return illuminated/max(total,1e-4);
+}
+
 // Ореол вокруг солнца — тот же, что в Hodba/Sky.
 half HodbaSunGlow(float cosA)
 {
     float c = saturate(cosA);
-    return pow(c, 8.0) * 0.18 + pow(c, 64.0) * 0.5 + pow(c, 900.0) * 1.5;
+    return (pow(c, 8.0) * 0.18 + pow(c, 64.0) * 0.5 + pow(c, 900.0) * 1.5) * (1.0 - saturate(_HodbaSunOcclusion));
 }
 
 // Цвет дымки по направлению взгляда, без ореола: к солнцу светлее и теплее, от солнца — темнее.
@@ -35,7 +104,7 @@ half3 HodbaHazeColor(half3 fog, float3 dir)
 {
     float c = dot(dir, HodbaSunDirection());
     half away = _HodbaHaze.y * saturate(-c);
-    half forward = _HodbaHaze.x * pow(saturate(c), 3.0);
+    half forward = _HodbaHaze.x * pow(saturate(c), 3.0) * (1.0 - saturate(_HodbaSunOcclusion));
     return fog * (1.0h - away) + _HodbaGlowColor.rgb * forward;
 }
 
@@ -67,7 +136,12 @@ half3 HodbaApplyFog(half3 color, float3 positionWS)
     float dist = length(toPoint);
     half visibility = HodbaFogVisibility(positionWS, dist);
     float3 dir = toPoint / max(dist, 1e-4);
-    half3 fog = HodbaHazeColor(unity_FogColor.rgb, dir) + _HodbaGlowColor.rgb * HodbaSunGlow(dot(dir, HodbaSunDirection()));
+    if (visibility > 0.999h) return color;
+    half sunlit=HodbaFogLightVisibility(GetCameraPositionWS(),positionWS);
+    // Extinction stays the same; only light scattered into the view is reduced in shadow.
+    half3 scattered=unity_FogColor.rgb*lerp(half3(0.30,0.39,0.53),half3(1,1,1),sunlit);
+    half3 fog = HodbaHazeColor(scattered, dir) + _HodbaGlowColor.rgb
+        * HodbaSunGlow(dot(dir, HodbaSunDirection())) * sunlit;
     return lerp(fog, color, visibility);
 }
 
@@ -83,56 +157,6 @@ half HodbaDustShadow(float3 positionWS)
     half edge = 1.0h - _HodbaDustShadowShape.y;
     half cover = smoothstep(edge - soft, edge + soft, n);
     return 1.0h - _HodbaDustShadow.w * cover;
-}
-
-// Позёмка: песок бежит по земле струями вдоль ветра (Saltation.cs). Координаты ветра вокруг путника:
-// x — по ветру, y — поперёк; сдвиги копит CPU, так что рисунок стоит в мире, пока путник идёт.
-float4 _HodbaSaltation;        // x — сила (0 — штиль), y — порыв 0..1, z — дальность, м; w — насколько струя закрывает землю
-float4 _HodbaSaltationFrame;   // xy — куда дует (xz), zw — путник (локальные xz)
-float4 _HodbaSaltationOffset;  // xy — сдвиг мелких струй, zw — крупных, м
-float4 _HodbaSaltationFront;   // xy — сдвиг фронтов порыва, м
-float4 _HodbaSaltationTiles;   // x, y, z — 1/тайл мелких струй, крупных, фронтов
-half4 _HodbaSaltationColor;
-TEXTURE2D(_HodbaSaltationTex); SAMPLER(sampler_HodbaSaltationTex);
-
-// Сколько песка бежит в этой точке, 0..1. dxz/dyz — производные мировых xz по экрану (взяты до любых веток).
-// looseness — рыхлость из мира: по корке песок почти не бежит. normalWS — склон: наветренный в струях, подветренный в тени.
-half HodbaSaltation(float3 positionWS, float dist, float2 dxz, float2 dyz, half looseness, float3 normalWS)
-{
-    half amount = 0.0h;
-    float fade = 1.0 - smoothstep(_HodbaSaltation.z * 0.5, _HodbaSaltation.z, dist);
-    UNITY_BRANCH
-    if (_HodbaSaltation.x > 0.0 && fade > 0.0 && looseness > 0.3h)
-    {
-        float2 d = _HodbaSaltationFrame.xy;
-        float2 across = float2(-d.y, d.x);
-        float2 rel = positionWS.xz - _HodbaSaltationFrame.zw;
-        float2 q = float2(dot(rel, d), dot(rel, across));
-        float2 qdx = float2(dot(dxz, d), dot(dxz, across));
-        float2 qdy = float2(dot(dyz, d), dot(dyz, across));
-
-        float2 t = _HodbaSaltationTiles.xy;
-        half2 fine = SAMPLE_TEXTURE2D_GRAD(_HodbaSaltationTex, sampler_HodbaSaltationTex,
-            (q + _HodbaSaltationOffset.xy) * t.x, qdx * t.x, qdy * t.x).rg;
-        half2 coarse = SAMPLE_TEXTURE2D_GRAD(_HodbaSaltationTex, sampler_HodbaSaltationTex,
-            (q + _HodbaSaltationOffset.zw) * t.y, qdx * t.y, qdy * t.y).rg;
-        half front = SAMPLE_TEXTURE2D_GRAD(_HodbaSaltationTex, sampler_HodbaSaltationTex,
-            (q + _HodbaSaltationFront.xy) * _HodbaSaltationTiles.z, qdx * _HodbaSaltationTiles.z, qdy * _HodbaSaltationTiles.z).b;
-
-        // Нити — только там, где их не рвёт; две сетки на разных скоростях сплетаются.
-        half streams = saturate(fine.x * fine.y * 1.7h + coarse.x * coarse.y * 0.9h);
-        // Чем сильнее порыв, тем шире фронты; между ними песок едва шевелится.
-        half edge = lerp(0.75h, 0.35h, (half)_HodbaSaltation.y);
-        half gust = lerp(0.2h, 1.0h, smoothstep(edge - 0.15h, edge + 0.15h, front));
-
-        half loose = smoothstep(0.35h, 0.7h, looseness);
-        // Склон к ветру в струях, за гребнем — затишье.
-        half facing = dot(normalWS.xz, d);
-        half exposure = saturate(1.0h - 3.0h * max(facing, 0.0h)) * (1.0h + 1.5h * max(-facing, 0.0h));
-
-        amount = saturate(_HodbaSaltation.x * gust * streams * loose * exposure * fade);
-    }
-    return amount;
 }
 
 // Шершавая поверхность (Орен — Найяр в приближении Fujii): плоский порошковый свет,

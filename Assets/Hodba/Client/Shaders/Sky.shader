@@ -80,7 +80,8 @@ Shader "Hodba/Sky"
                 half disc = saturate((cosA - sunCos) / max(1e-5, (1.0 - sunCos) * 0.25));
                 half glow = HodbaSunGlow(cosA);
                 half aboveHorizon = saturate(y * 40.0 + 0.5);
-                sky += _SunColor.rgb * (disc * 30.0 * aboveHorizon * (1.0 - haze * 0.6) + glow * _SunGlow);
+                sky += _SunColor.rgb * (disc * 30.0 * aboveHorizon * (1.0 - haze * 0.6)
+                    * (1.0 - saturate(_HodbaSunOcclusion)) + glow * _SunGlow);
 
                 // Звёзды. Сетка на гранях куба: у каждой звезды своя клетка, и звезда целиком внутри неё.
                 // Звезда не тоньше пикселя, иначе она проваливается между пикселями и неба не видно.

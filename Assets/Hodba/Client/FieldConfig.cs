@@ -21,6 +21,11 @@ namespace Hodba.Client
         [Tooltip("Отладка: сильный встречный ветер (сцена «остановка на ветру»).")]
         public bool debugHeadwind;
 
+        [Header("Великая Стена")]
+        [Tooltip("Древняя каменная стена высотой 500 м, к востоку от начала пути.")]
+        public bool greatWallEnabled = true;
+        public Material greatWallMaterial;
+
         [Header("Ходьба")]
         public WalkParams walk = WalkParams.Default;
 
@@ -167,31 +172,46 @@ namespace Hodba.Client
         public float windWander = 35f;
         [Range(0f, 1f)] public float windBase = 0.35f;
         [Range(0f, 1f)] public float windGust = 0.5f;
-        public float gustPeriod = 9f;
-        public int dustCount = 300;
-        public float dustBox = 36f;
+        [Tooltip("Размер тайла фронтов порыва, м: пятна 30–80 м бегут по пустыне со скоростью ветра. Чем больше, тем реже повторяется ритм порывов.")]
+        public float gustFrontScale = 1024f;
+        [Tooltip("Отладка: −1 — природа, 0..1 — держать силу ветра (фронты порывов всё равно бегут).")]
+        [Range(-1f, 1f)] public float windOverride = -1f;
+        public int dustCount = 1200;
+        public float dustBox = 14f;
         [Tooltip("Насколько гуще дымка в сильный порыв: ветер поднимает пыль.")]
-        [Range(0f, 2f)] public float dustRaise = 0.6f;
+        [Range(0f, 2f)] public float dustRaise = 0.2f;
 
         [Header("Позёмка: песок бежит по земле")]
-        [Tooltip("Струи и фронты порыва (создаёт Hodba ▸ Refresh Field Assets). Пусто — позёмки нет.")]
+        [Tooltip("Струи позёмки (RG) и языки взвеси (A) (создаёт Hodba ▸ Refresh Field Assets). Пусто — ни позёмки, ни взвеси.")]
         public Texture2D saltationTexture;
         [Tooltip("Сила ветра (0..1), с которой песок начинает бежать.")]
-        [Range(0f, 1f)] public float saltationThreshold = 0.35f;
+        [Range(0f, 1f)] public float saltationThreshold = 0.3f;
         [Range(0f, 2f)] public float saltationStrength = 1f;
         [Tooltip("Насколько струя закрывает землю.")]
-        [Range(0f, 1f)] public float saltationOpacity = 0.35f;
+        [Range(0f, 1f)] public float saltationOpacity = 0.2f;
         public Color saltationColor = new Color(0.84f, 0.81f, 0.76f);
         [Tooltip("Тайл мелких струй, м; крупные — в 2,6 раза больше.")]
         public float saltationTile = 6f;
-        [Tooltip("Скорость струй относительно ветра.")]
-        public float saltationSpeed = 0.8f;
-        [Tooltip("Дальше этого, м, позёмку не видно.")]
-        public float saltationDistance = 60f;
-        [Tooltip("Размер фронтов порыва, м: пятна, которые бегут по пустыне со скоростью ветра.")]
-        public float gustFrontScale = 80f;
+        [Tooltip("Скорость струй относительно ветра у глаз: у самой земли песок медленнее воздуха над ним.")]
+        public float saltationSpeed = 0.35f;
+        [Tooltip("Дальше этого, м, нитей позёмки не видно; фронт порыва осветляет землю ещё в 2,5 раза дальше.")]
+        public float saltationDistance = 30f;
+        [Tooltip("Сила ветра, с которой песчинки прыгают у ног.")]
+        [Range(0f, 1f)] public float grainThreshold = 0.35f;
         [Tooltip("Песчинок в секунду у ног в самый сильный порыв.")]
-        public float sprayRate = 240f;
+        public float sprayRate = 1800f;
+
+        [Header("Взвесь: песок и пыль в воздухе у земли")]
+        [Tooltip("Сила ветра, с которой над землёй появляются языки взвеси.")]
+        [Range(0f, 1f)] public float veilThreshold = 0.15f;
+        [Tooltip("Насколько плотна пелена в сильный порыв.")]
+        [Range(0f, 1f)] public float veilDensity = 0.45f;
+        [Tooltip("Тайл языков взвеси, м.")]
+        public float veilTile = 14f;
+        [Tooltip("Оболочек над землёй (0.08 / 0.3 / 0.7 м). 0 — взвеси нет (для слабых телефонов).")]
+        [Range(0, 3)] public int veilLayers = 0;
+        [Tooltip("Сколько ближних колец земли несут взвесь; дальше её продолжает дымка.")]
+        [Range(1, 3)] public int veilLevels = 3;
 
         [Header("Звук")]
         [Range(0f, 1f)] public float masterVolume = 0.9f;
@@ -226,6 +246,7 @@ namespace Hodba.Client
         public Material dustMaterial;
         [FormerlySerializedAs("driftMaterial")]
         public Material sprayMaterial;
+        public Material sandVeilMaterial;
         public VolumeProfile volumeProfile;
         [Tooltip("Hidden/Hodba/Eye — веки поверх картинки.")]
         public Shader eyeShader;

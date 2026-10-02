@@ -66,8 +66,10 @@ Shader "Hodba/Dust"
                 half near = saturate((dist - _NearFade.x) / max(_NearFade.y, 0.01));
                 half a = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv).a * i.color.a * near;
                 float3 view = toPoint / max(dist, 1e-4);
-                half forward = pow(saturate(dot(view, HodbaSunDirection())), 6.0);
-                half3 light = _HodbaAmbient.rgb + _HodbaSunColor.rgb * ((0.35h + _Scatter * forward) * HodbaDustShadow(i.positionWS));
+                half forward = pow(saturate(dot(view, HodbaSunDirection())), 6.0) * (1.0 - saturate(_HodbaSunOcclusion));
+                half sunlight=HodbaWallLightVisibility(i.positionWS,HodbaSunDirection());
+                half3 light = _HodbaAmbient.rgb * lerp(0.65h,1.0h,sunlight)
+                    + _HodbaSunColor.rgb * ((0.35h + _Scatter * forward) * HodbaDustShadow(i.positionWS) * sunlight);
                 half3 col = _Tint.rgb * i.color.rgb * light;
                 col = HodbaApplyFog(col, i.positionWS);
                 return half4(col, a);

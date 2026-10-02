@@ -29,7 +29,7 @@ namespace Hodba.Editor
             public float Pitch;
             public float Yaw;
             public float OriginX;
-            public float Wind; // сила позёмки, 0 — штиль
+            public float Wind; // сила ветра, 0 — штиль
         }
 
         [MenuItem("Hodba/Debug/Ground Preview", priority = 201)]
@@ -84,6 +84,8 @@ namespace Hodba.Editor
                 new Shot { Name = "рябь вдоль ветра, пологий ракурс", Z = 95f, SunElevation = 6f, Pitch = 6f, Yaw = 90f },
                 new Shot { Name = "перенос центра: 512 м", Z = 95f, SunElevation = 6f, Pitch = 28f, Yaw = 90f, OriginX = 512f },
                 new Shot { Name = "перенос центра: 4096 + 512 м", Z = 95f, SunElevation = 6f, Pitch = 28f, Yaw = 90f, OriginX = 4608f },
+                new Shot { Name = "взвесь, ветер 0.3, низкое солнце", Z = 95f, SunElevation = 8f, Pitch = 8f, Yaw = 40f, Wind = 0.3f },
+                new Shot { Name = "взвесь, ветер 0.8, против солнца", Z = 340f, SunElevation = 6f, Pitch = 5f, Yaw = 200f, Wind = 0.8f },
             };
 
             int rows = (shots.Length + 1) / 2;
@@ -99,18 +101,22 @@ namespace Hodba.Editor
                     var focus = WorldPos.FromMeters(0, s.Z);
                     // Меняется только центр координат; мировая точка и геометрия остаются теми же.
                     var origin = new FloatingOrigin(s.OriginX == 0f ? focus : WorldPos.FromMeters(s.OriginX, 0));
-                    using (var ground = new ClipmapTerrain(world, origin, config, config.groundMaterial))
+                    using (var ground = new ClipmapTerrain(world, origin, config, config.groundMaterial, config.sandVeilMaterial))
                     {
                         // Солнце сбоку-спереди: низкое солнце вытягивает тени от каждого бугорка.
                         float h = world.SampleHeightMm(focus) / 1000f;
                         var sunDirection = -(Quaternion.Euler(s.SunElevation, 200f, 0f) * Vector3.forward);
                         sky.Apply(s.SunElevation, sunDirection, config, h, 0f);
                         camGo.transform.SetPositionAndRotation(origin.ToLocal(focus, h + config.eyeHeight), Quaternion.Euler(s.Pitch, s.Yaw, 0f));
-                        // Позёмка застыла в кадре: ветер на восток, вокруг глаз; бег струй виден только в Play.
+                        // Ветер и песок застыли в кадре: ветер на восток, вокруг глаз; бег струй и языков виден только в Play.
                         var eye = camGo.transform.position;
-                        Saltation.Push(config, s.Wind, 1f, new Vector2(1f, 0f), new Vector2(eye.x, eye.z), Vector4.zero, Vector2.zero);
+                        Wind.Push(new Vector2(1f, 0f), Mathf.Lerp(1.5f, 9f, s.Wind), s.Wind, new Vector2(eye.x, eye.z), Vector2.zero,
+                            Wind.FrontTile(config), config.windGust);
+                        float veil = SandDrift.VeilResponse(s.Wind, config);
+                        SandDrift.Push(config, veil, SandDrift.Response(s.Wind, config.saltationThreshold) * config.saltationStrength,
+                            Vector4.zero, SandDrift.StillLayers());
 
-                        ground.Tick(focus);
+                        ground.Tick(focus, veil);
                         cam.targetTexture = rt;
                         RenderPipeline.SubmitRenderRequest(cam, new UniversalRenderPipeline.SingleCameraRequest { destination = rt });
                         var old = RenderTexture.active;

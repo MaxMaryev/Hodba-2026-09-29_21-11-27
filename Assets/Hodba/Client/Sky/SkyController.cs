@@ -36,7 +36,7 @@ namespace Hodba.Client
         bool _hasFogLevel;
         float _raisedDust;
 
-        /// <summary>Пыль, поднятая ветром, 0..1 (сила × порыв): дымка гуще и жмётся к земле.</summary>
+        /// <summary>Пыль, поднятая ветром, 0..1 (взвесь × порыв у путника): дымка гуще и жмётся к земле.</summary>
         public void SetRaisedDust(float amount) => _raisedDust = Mathf.Clamp01(amount);
 
         public SkyController(Light sun, Material sky)

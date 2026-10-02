@@ -17,6 +17,30 @@ namespace Hodba.Editor
             return new Color(n, n, n, 1f);
         });
 
+        const float RippleTileM = 64f, RippleWarpM = 0.12f, RippleWarpSlope = 0.6f; // как в HodbaRipple.hlsl
+
+        /// <summary>
+        /// Мелкая рябь: тайл 64 м, U — по ветру (мировая x). R — изгиб гребней, ±0,12 м (клетка 2 м);
+        /// G, B — его наклон по x и z, ±0,6: шейдер берёт градиент фазы готовым, билинейка наклона непрерывна —
+        /// гребни не ломаются на текселях; A — сила ряби по месту (пятна ~4 м). Обрывы гребней — хэш их номеров в шейдере.
+        /// Без сжатия: блоки сжатия ломали бы гребни сеткой.
+        /// </summary>
+        public static Texture2D RippleNoise(string path) => Write(path, 512, 512, (u, v) =>
+        {
+            const float e = 0.5f / 512f;
+            float dx = (RippleWarp(u + e, v) - RippleWarp(u - e, v)) / (2f * e * RippleTileM);
+            float dz = (RippleWarp(u, v + e) - RippleWarp(u, v - e)) / (2f * e * RippleTileM);
+            float strength = Mathf.Lerp(0.4f, 1f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.7f, Fbm(u, v, 16, 2, 821))));
+            return new Color(
+                0.5f + 0.5f * Mathf.Clamp(RippleWarp(u, v) / RippleWarpM, -1f, 1f),
+                0.5f + 0.5f * Mathf.Clamp(dx / RippleWarpSlope, -1f, 1f),
+                0.5f + 0.5f * Mathf.Clamp(dz / RippleWarpSlope, -1f, 1f),
+                strength);
+        }, TextureWrapMode.Repeat, TextureImporterCompression.Uncompressed);
+
+        /// <summary>Изгиб гребней мелкой ряби, м.</summary>
+        static float RippleWarp(float u, float v) => (Fbm(u, v, 32, 2, 811) - 0.5f) * 0.4f;
+
         /// <summary>Три независимых поля на тайл 128 м: варианты (4 м), оттенок (32–8 м), детали (16 м).</summary>
         public static Texture2D Variation(string path) => Write(path, 512, 512, (u, v) =>
             new Color(Fbm(u, v, 32, 2, 301), Fbm(u, v, 4, 3, 401), Fbm(u, v, 8, 2, 501), 1f));
@@ -32,20 +56,18 @@ namespace Hodba.Editor
         });
 
         /// <summary>
-        /// Позёмка, координаты по ветру (U — вдоль ветра).
-        /// R — нити: тонкие гребни шума, вытянутые вдоль ветра ~8:1; G — где струи есть, а где их рвёт;
-        /// B — крупные пятна для фронтов порыва (шейдер берёт их на своём, гораздо большем тайле).
+        /// Песок на ветру, координаты по ветру (U — вдоль ветра).
+        /// R — мелкая зернистая позёмка; G — где поток гуще, а где его рвёт;
+        /// A — языки взвеси: мягкий шум, вытянутый вдоль ветра 4:1, без гребней. Фронты порыва — у ветра, не здесь.
         /// </summary>
         public static Texture2D Saltation(string path) => Write(path, 256, 256, (u, v) =>
         {
-            // Небольшое искривление поперёк — нити сплетаются, а не идут по линейке.
-            float bend = (Fbm(u, v, 4, 2, 701) - 0.5f) * 0.08f;
-            float n1 = TileNoise(u, v + bend, 4, 32, 711), n2 = TileNoise(u, v + bend * 1.7f, 8, 64, 713);
-            float ridge = Mathf.Pow(1f - Mathf.Abs(2f * n1 - 1f), 6f) * 0.7f + Mathf.Pow(1f - Mathf.Abs(2f * n2 - 1f), 6f) * 0.45f;
-            float threads = Mathf.Clamp01(ridge * (0.6f + 0.8f * TileNoise(u, v, 16, 8, 717)));
+            // Короткие разрозненные пятна: движение задаёт сдвиг по ветру, а не длинные полосы в текстуре.
+            float specks = TileNoise(u, v, 96, 128, 711);
+            float threads = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 0.9f, specks));
             float breakup = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Fbm(u, v, 6, 3, 721) - 0.38f) / 0.3f));
-            float front = Mathf.Clamp01((Fbm(u, v, 4, 3, 731) - 0.5f) * 2.4f + 0.5f);
-            return new Color(threads, breakup, front, 1f);
+            float tongues = Mathf.Clamp01((StretchedFbm(u, v, 4, 16, 4, 741) - 0.5f) * 2.2f + 0.5f);
+            return new Color(threads, breakup, 0f, tongues);
         });
 
         /// <summary>Пылинка: мягкая точка.</summary>
@@ -56,13 +78,11 @@ namespace Hodba.Editor
             return new Color(1f, 1f, 1f, a);
         }, TextureWrapMode.Clamp);
 
-        /// <summary>Песчинка в полёте: тонкий штрих с чётким краем и сужением к хвосту, без гауссова «облака».</summary>
-        public static Texture2D Grain(string path) => Write(path, 64, 16, (u, v) =>
+        /// <summary>Компактное зерно с узким мягким краем, без длинного хвоста.</summary>
+        public static Texture2D Grain(string path) => Write(path, 32, 32, (u, v) =>
         {
-            float across = Mathf.Abs(v - 0.5f) * 2f;
-            float body = 1f - Mathf.SmoothStep(0.45f, 0.75f, across);
-            float taper = Mathf.SmoothStep(0f, 0.25f, u) * (1f - Mathf.SmoothStep(0.6f, 1f, u));
-            return new Color(1f, 1f, 1f, body * taper);
+            float r = new Vector2((u - 0.5f) * 2f, (v - 0.5f) * 2.4f).magnitude;
+            return new Color(1f, 1f, 1f, 1f - Mathf.SmoothStep(0.45f, 0.95f, r));
         }, TextureWrapMode.Clamp);
 
         // ——— общее ———
@@ -70,7 +90,8 @@ namespace Hodba.Editor
         delegate Color Pixel(float u, float v);
 
         /// <summary>Линейная текстура с мипами. Repeat — поле шума, Clamp — спрайт частицы (альфа — прозрачность).</summary>
-        static Texture2D Write(string path, int w, int h, Pixel f, TextureWrapMode wrap = TextureWrapMode.Repeat)
+        static Texture2D Write(string path, int w, int h, Pixel f, TextureWrapMode wrap = TextureWrapMode.Repeat,
+            TextureImporterCompression compression = TextureImporterCompression.CompressedHQ)
         {
             var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, true);
             var px = new Color[w * h];
@@ -94,7 +115,7 @@ namespace Hodba.Editor
             imp.mipmapEnabled = true;
             imp.filterMode = FilterMode.Trilinear;
             imp.anisoLevel = 4;
-            imp.textureCompression = TextureImporterCompression.CompressedHQ;
+            imp.textureCompression = compression;
             imp.SaveAndReimport();
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
@@ -119,15 +140,20 @@ namespace Hodba.Editor
             return Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fy);
         }
 
-        static float Fbm(float u, float v, int period, int octaves, int seed)
+        static float Fbm(float u, float v, int period, int octaves, int seed) =>
+            StretchedFbm(u, v, period, period, octaves, seed);
+
+        /// <summary>Fbm с разным числом клеток по осям: пятна вытянуты вдоль оси с меньшим числом клеток.</summary>
+        static float StretchedFbm(float u, float v, int periodU, int periodV, int octaves, int seed)
         {
             float sum = 0f, amp = 0.5f, norm = 0f;
             for (int i = 0; i < octaves; i++)
             {
-                sum += TileNoise(u, v, period, period, seed + i * 17) * amp;
+                sum += TileNoise(u, v, periodU, periodV, seed + i * 17) * amp;
                 norm += amp;
                 amp *= 0.5f;
-                period *= 2;
+                periodU *= 2;
+                periodV *= 2;
             }
             return sum / norm;
         }

@@ -25,7 +25,7 @@ namespace Hodba.Client
         public readonly long SpacingMm;
         /// <summary>Высота, м, по кольцевому адресу <see cref="Texel"/>.</summary>
         public readonly float[] Heights = new float[Size * Size];
-        /// <summary>Что мир говорит о поверхности: r — рыхлость, g — рябь, b — неровность.</summary>
+        /// <summary>Что мир говорит о поверхности: r — рыхлость, g — рябь, b — сдвиг гребней, a — амплитуда.</summary>
         public readonly Color32[] Surface = new Color32[Size * Size];
 
         /// <summary>Мировой индекс вершины в левом нижнем углу, в шагах этого кольца.</summary>
@@ -72,7 +72,7 @@ namespace Hodba.Client
             {
                 long x = gx * SpacingMm, z = gz * SpacingMm;
                 int t = Texel(gx, gz);
-                Heights[t] = world.SampleHeightMm(x, z) / 1000f;
+                Heights[t] = world.SampleHeightMm(x, z, SpacingMm) / 1000f;
                 Surface[t] = SurfaceColor(world.SampleSurface(x, z));
             }
         }
@@ -84,9 +84,28 @@ namespace Hodba.Client
 
         /// <summary>То, что знает мир о поверхности, — в цвет для шейдера земли.</summary>
         public static Color32 SurfaceColor(in SurfaceSample s) =>
-            new Color32(Byte(s.Looseness), Byte(s.Ripple), Byte(s.Roughness), 255);
+            new Color32(Byte(s.Looseness), Byte(s.Ripple), ShiftByte(s.RippleShiftMm), AmplitudeByte(s.RippleAmplitudeMm));
 
         static byte Byte(int q16) => (byte)Math.Min(255, Math.Max(0, q16 >> 8));
+
+        /// <summary>±<see cref="SurfaceSample.RippleShiftMaxMm"/> в байт, шаг около 5,5 мм.</summary>
+        public static byte ShiftByte(long shiftMm)
+        {
+            const long max = SurfaceSample.RippleShiftMaxMm;
+            long v = ((shiftMm + max) * 255 + max) / (2 * max);
+            if (v < 0) return 0;
+            if (v > 255) return 255;
+            return (byte)v;
+        }
+
+        /// <summary>0..30 мм в байт.</summary>
+        public static byte AmplitudeByte(long amplitudeMm)
+        {
+            long v = amplitudeMm * 255 / 30;
+            if (v < 0) return 0;
+            if (v > 255) return 255;
+            return (byte)v;
+        }
 
         /// <summary>
         /// Где встают кольца, чтобы каждое внутреннее лежало в своём ровно, с полосой в клетку.

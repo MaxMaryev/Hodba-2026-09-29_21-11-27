@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Hodba.Core;
 using Hodba.Sim.Walk;
+using Hodba.World;
 using UnityEngine;
 
 namespace Hodba.Client
@@ -60,7 +61,7 @@ namespace Hodba.Client
         public static void Clear() => PlayerPrefs.DeleteKey(Key);
 
         /// <summary>Сколько прошёл без игрока: прямо по курсу, обычным шагом.</summary>
-        public static WorldPos Advance(State state, float speed, float maxHours, out double meters)
+        public static WorldPos Advance(State state, float speed, float maxHours, out double meters, IWorldQuery world = null)
         {
             meters = 0;
             if (!state.Walking) return state.Position;
@@ -68,9 +69,17 @@ namespace Hodba.Client
             seconds = Math.Max(0, Math.Min(seconds, maxHours * 3600.0));
             meters = seconds * speed;
             double rad = state.Course * Math.PI / 180.0;
-            return state.Position.Offset(
+            var next = state.Position.Offset(
                 (long)(Math.Sin(rad) * meters * 1000.0),
                 (long)(Math.Cos(rad) * meters * 1000.0));
+            if (world is IWorldMovementQuery obstacles)
+            {
+                next = obstacles.ResolveMovement(state.Position, next);
+                double dx = (next.X - state.Position.X) / 1000.0;
+                double dz = (next.Z - state.Position.Z) / 1000.0;
+                meters = Math.Sqrt(dx * dx + dz * dz);
+            }
+            return next;
         }
     }
 }

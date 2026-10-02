@@ -31,9 +31,10 @@ namespace Hodba.Client
         Wind _wind;
         Dust _dust;
         DustShadows _dustShadows;
-        Saltation _saltation;
+        SandDrift _sand;
         ClipmapTerrain _ground;
         StoneScatter _stones;
+        GreatWall _wall;
         Footprints _footprints;
         WindSynth _windAudio;
         FootstepSynth _stepAudio;
@@ -65,6 +66,7 @@ namespace Hodba.Client
             Screen.orientation = ScreenOrientation.AutoRotation;
 
             _world = Proving ? new ProvingGround(config.seed) : new FlatStub(config.seed);
+            if (!Proving && config.greatWallEnabled) _world = new GreatWallWorld(_world);
 
             var start = WorldPos.FromMeters(0, 0);
             float course = Proving ? 0f : 30f;
@@ -72,7 +74,8 @@ namespace Hodba.Client
             // Полигон всегда с начала маршрута: сохранение ему только мешает.
             if (!Proving && config.continueFromSave && WalkerSave.TryLoad(out var saved))
             {
-                start = WalkerSave.Advance(saved, config.walk.BaseSpeed, config.backgroundMaxHours, out _);
+                if (_world is GreatWallWorld) saved.Position = GreatWallWorld.OutsideWall(saved.Position);
+                start = WalkerSave.Advance(saved, config.walk.BaseSpeed, config.backgroundMaxHours, out _, _world);
                 course = saved.Course;
                 walking = saved.Walking;
             }
@@ -94,14 +97,19 @@ namespace Hodba.Client
             _sky = new SkyController(sun, config.skyMaterial);
             _exposure = new ExposureController(volume);
             _eyeRender = new EyeRender(camera, config.eyeShader != null ? config.eyeShader : Shader.Find("Hidden/Hodba/Eye"));
-            _wind = new Wind();
-            _dust = new Dust(config, _origin);
+            _wind = new Wind(_origin);
+            _dust = new Dust(config, _origin, _world);
             _dustShadows = new DustShadows();
-            _saltation = new Saltation(_origin);
+            _sand = new SandDrift();
 
-            _ground = new ClipmapTerrain(_world, _origin, config, config.groundMaterial);
+            _ground = new ClipmapTerrain(_world, _origin, config, config.groundMaterial, config.sandVeilMaterial);
             _ground.Update(_sim.Position);
             _stones = new StoneScatter(_world, _origin, config, config.stoneMaterial, config.boulderMaterial);
+            if (_world is GreatWallWorld && config.greatWallMaterial != null)
+            {
+                _wall = new GreatWall(_world, _origin, config.greatWallMaterial);
+                _wall.Tick(start);
+            }
             _footprints = new Footprints(_world, _origin, config, config.footprintMaterial);
 
             _windAudio = WindSynth.Create(camera.transform, config.windLoop, config.windGustLoop, config.ashHissLoop);
@@ -150,11 +158,14 @@ namespace Hodba.Client
             _sim.Step(dt, _world);
 
             _origin.Tick(_sim.Position);
-            _ground.Tick(_sim.Position);
-            _stones.Tick(_sim.Position);
 
-            // Ветер раньше тела: тело (а потом и веки) чувствует его в этом же кадре.
-            _wind.Tick(config, Time.time, _sim.Course);
+            // Ветер раньше тела: тело (а потом и веки) чувствует порыв в этом же кадре, когда до путника доходит видимый фронт.
+            _wind.Tick(config, Time.time, _origin.ToLocal(_sim.Position), dt, _sim.Course);
+            _sand.Tick(_wind, config, dt);
+
+            _ground.Tick(_sim.Position, _sand.Veil);
+            _stones.Tick(_sim.Position);
+            _wall?.Tick(_sim.Position);
 
             _walker.Tick(_walker.Context(dt, _sim, _world, _wind, _clock, _gaze, _looking));
             _rig.Apply(_walker.Pose, _walker.Eyes, _walker.Gait.SupportHeight, _sim, _gaze, _origin, config);
@@ -164,15 +175,18 @@ namespace Hodba.Client
 
             float ground = _world.SampleHeightMm(_sim.Position) / 1000f;
             _clock.Tick(config);
-            _sky.SetRaisedDust(_wind.Strength * _wind.Gust);
+            // Дымка густеет волной с фронтом порыва, но только если ветер держит пыль: в штиль не поднимается.
+            _sky.SetRaisedDust(_sand.Veil * _wind.Gust);
             _sky.Tick(_clock, config, ground, dt);
             _dustShadows.Tick(_wind, config, dt);
-            _saltation.Tick(_wind, config, _rig.Camera.transform.position, dt);
-            _exposure.Tick(_rig.Camera, _clock, config, dt, _walker.Eyelids.Squint);
+            float sunVisibility = SunOcclusion.Visibility(_world, _origin.ToWorld(_rig.Camera.transform.position),
+                _rig.Camera.transform.position.y, _clock.SunDirection);
+            Shader.SetGlobalFloat("_HodbaSunOcclusion", 1f - sunVisibility);
+            _exposure.Tick(_rig.Camera, _clock, config, dt, _walker.Eyelids.Squint, sunVisibility);
             _eyeRender.Apply(_walker.Eyelids, _exposure.GlareStimulus, _walker.Periphery);
 
             float looseness = _world.SampleSurface(_sim.Position.X, _sim.Position.Z).Looseness / 65536f;
-            _dust.Tick(_rig.Camera, _wind, config, _origin.ToLocal(_sim.Position, ground).y, looseness);
+            _dust.Tick(_rig.Camera, _wind, _sand, config, _origin.ToLocal(_sim.Position, ground).y, looseness, dt);
             _footprints.Tick(dt, _wind.Strength);
 
             float side = Mathf.Sin((_wind.Direction + 180f - _gaze.Yaw) * Mathf.Deg2Rad);
@@ -203,13 +217,15 @@ namespace Hodba.Client
 
             // Вернулся: сколько он прошёл без тебя.
             if (!WalkerSave.TryLoad(out var saved) || !saved.Walking) return;
-            var pos = WalkerSave.Advance(saved, config.walk.BaseSpeed, config.backgroundMaxHours, out double meters);
+            if (_world is GreatWallWorld) saved.Position = GreatWallWorld.OutsideWall(saved.Position);
+            var pos = WalkerSave.Advance(saved, config.walk.BaseSpeed, config.backgroundMaxHours, out double meters, _world);
             if (meters < 1.0) return;
             _sim.Teleport(pos, saved.Course, true);
             _walker.Reset(_sim);
             _origin.Rebase(pos);
             if (meters > 300.0) _footprints.Clear();
             _ground.Update(pos);
+            _wall?.Tick(pos);
         }
 
         void OnApplicationQuit() => Save();
@@ -219,6 +235,8 @@ namespace Hodba.Client
             _input?.Dispose();
             _eyeRender?.Dispose();
             _ground?.Dispose();
+            _wall?.Dispose();
+            Shader.SetGlobalFloat("_HodbaSunOcclusion", 0f);
         }
 
         Camera CreateCamera()
@@ -226,7 +244,7 @@ namespace Hodba.Client
             var go = new GameObject("Eyes");
             var cam = go.AddComponent<Camera>();
             cam.nearClipPlane = 0.05f;
-            cam.farClipPlane = 5000f;
+            cam.farClipPlane = !Proving && config.greatWallEnabled ? GreatWall.ViewDistance : 5000f;
             cam.fieldOfView = config.fov;
             cam.clearFlags = CameraClearFlags.Skybox;
             cam.allowHDR = true;

@@ -43,8 +43,8 @@ Material:
         m_Texture: {fileID: 2800000, guid: 58ca4fedac78aec4cb0944773f170f0c, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    - _RippleNormal:
-        m_Texture: {fileID: 2800000, guid: 01ad4d0fad9f63048b3f9224131e2db5, type: 3}
+    - _RippleNoise:
+        m_Texture: {fileID: 2800000, guid: fd4452c2e5446664186cddad677465c3, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _VariationTex:
@@ -53,6 +53,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AOStrength: 1
     - _AshNormalStrength: 0.6
     - _AshTile: 2
     - _DetailVar: 0.35
@@ -61,14 +62,16 @@ Material:
     - _MacroContrast: 1.8
     - _MacroTile: 512
     - _MacroTint: 0.5
+    - _MegaRippleFadeDistance: 40
+    - _MegaRippleStrength: 1
     - _MidHue: 0.03
     - _MidTint: 0.08
     - _PackedNormalStrength: 1
     - _PackedTile: 4
     - _RippleFadeDistance: 70
-    - _RipplePeriods: 40
     - _RippleStrength: 0.9
-    - _RippleTile: 4
+    - _RoughFar: 0.9
+    - _RoughNear: 0.6
     - _VariantBlend: 0.3
     - _Wrap: 0.1
     m_Colors: []

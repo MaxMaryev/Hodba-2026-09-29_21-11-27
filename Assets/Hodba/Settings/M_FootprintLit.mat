@@ -34,6 +34,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _NormalStrength: 1
+    - _Rough: 0.6
     - _Strength: 1
     - _Wrap: 0.1
     m_Colors: []

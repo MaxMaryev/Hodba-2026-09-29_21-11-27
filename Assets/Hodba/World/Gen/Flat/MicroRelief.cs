@@ -33,10 +33,19 @@ namespace Hodba.World.Gen
         // Характер места: медленные маски.
         const long BumpZoneCell = 520_000, RippleZoneCell = 340_000;
 
-        // Рябь: две волны разной длины, смешанные по месту, — длина «гуляет» без разрыва фазы.
-        const long RippleA = 650, RippleB = 850;
-        const long RippleWarp = 350, RippleWarpCell = 7_000;
+        // Рябь: одна волна (смешивать две нельзя: где поровну, гребни гасят друг друга). Ровные бесконечные гребни
+        // читаются пашнёй до горизонта, поэтому гребни петляют, шаг гуляет, а каждый гребень живёт сам по себе.
+        // Сдвиг меняется вдоль гребня (z) вдвое быстрее, чем поперёк: гребни плавно изгибаются.
+        const long RippleBendCell = 7_000, RippleBendStretch = 2, RippleBendMm = 580;
+        // Шаг гребней гуляет на ±10%: ровный шаг — главный признак вельвета.
+        const long RippleSpacingCell = 2_500, RippleSpacingMm = SurfaceSample.RippleShiftMaxMm - RippleBendMm;
         const long RippleMinMm = 10, RippleMaxMm = 30;
+        // Свой у каждого гребня: высота и обрывы, шум вдоль него с клеткой 3,2 м (делит шаг переноса центра мира —
+        // шейдер повторяет его по номеру гребня). Около трети гребня в каждом месте нет.
+        public const long CrestCellMm = 3_200;
+        public const int CrestIndexMask = 0xFFFFF;
+        // Средняя высота гребней с их обрывами: рябь не поднимает землю в среднем.
+        const long CrestMeanQ = One * 22 / 100;
 
         // Бугры и наносы.
         const long BumpCell = 2_500, BumpMm = 60, DriftCell = 9_000, DriftMm = 40;
@@ -56,7 +65,8 @@ namespace Hodba.World.Gen
             ripple = (int)((long)zone * loose >> 16);
         }
 
-        public static Relief Evaluate(long x, long z, uint seed, int looseness, int ripple, int bumps)
+        /// <param name="footprintMm">Шаг сетки, которая это рисует; 0 — точная высота. Сетка не держит рябь — её рисует свет.</param>
+        public static Relief Evaluate(long x, long z, uint seed, int looseness, int ripple, int bumps, long footprintMm = 0)
         {
             long h = 0;
 
@@ -64,7 +74,11 @@ namespace Hodba.World.Gen
             long grain = ValueNoise.Sample(x, z, GrainCell, seed + 261) - One / 2;
             h += grain * GrainMm * 2 * (One - looseness / 2) >> 32;
 
-            if (ripple > 0) h += RippleHeight(x, z, seed) * ripple >> 16;
+            if (footprintMm <= 0 && ripple > 0)
+            {
+                RippleWave(x, z, seed, ripple, out long shift, out long amplitude);
+                h += RippleHeightMm(x, z, seed, shift, amplitude);
+            }
 
             if (bumps > 0)
             {
@@ -78,17 +92,54 @@ namespace Hodba.World.Gen
         }
 
         /// <summary>
-        /// Рябь поперёк ветра, дующего на восток: пологий наветренный склон (на запад), крутой подветренный.
-        /// Гребни слегка изогнуты.
+        /// Сдвиг и амплитуда ряби. Амплитуда уже включает маску места: 0 там, где ряби нет. Плавные — их рисуют вершины колец.
+        /// Гребень — где (x + сдвиг) по модулю длины волны на пике профиля 70/30.
         /// </summary>
-        static long RippleHeight(long x, long z, uint seed)
+        public static void RippleWave(long x, long z, uint seed, int mask, out long shiftMm, out long amplitudeMm)
         {
-            long warp = (long)ValueNoise.Fbm(x, z, RippleWarpCell, 2, seed + 221) * RippleWarp >> 16;
-            long u = x + warp;
-            int mix = ValueNoise.Sample(x, z, 60_000, seed + 231);
-            long wave = (Wave(u, RippleA) * (One - mix) + Wave(u + 311, RippleB) * mix) >> 16;
+            if (mask <= 0)
+            {
+                shiftMm = 0;
+                amplitudeMm = 0;
+                return;
+            }
+
+            long bend = ValueNoise.Fbm(WorldPos.FloorDiv(x, RippleBendStretch), z, RippleBendCell, 2, seed + 221);
+            long spacing = ValueNoise.Fbm(x, WorldPos.FloorDiv(z, RippleBendStretch), RippleSpacingCell, 2, seed + 225);
+            shiftMm = (bend * RippleBendMm + spacing * RippleSpacingMm) >> 16;
             long amp = RippleMinMm + ((RippleMaxMm - RippleMinMm) * ValueNoise.Sample(x, z, 120_000, seed + 241) >> 16);
-            return (wave - One / 2) * amp >> 16;
+            amplitudeMm = amp * mask >> 16;
+        }
+
+        /// <summary>
+        /// Вклад ряби в высоту, мм. Впадина — на нуле профиля, гребень — на своей высоте (<see cref="CrestMask"/>):
+        /// гребни сменяют друг друга во впадине, где волна — ноль, поэтому ступенек нет.
+        /// </summary>
+        public static long RippleHeightMm(long x, long z, uint seed, long shiftMm, long amplitudeMm)
+        {
+            if (amplitudeMm == 0) return 0;
+            long u = x + shiftMm;
+            long wave = Wave(u, SurfaceSample.RippleLengthMm);
+            long crest = WorldPos.FloorDiv(u, SurfaceSample.RippleLengthMm);
+            long shape = (wave * CrestMask(crest, z, seed) >> 16) - CrestMeanQ;
+            return shape * amplitudeMm >> 16;
+        }
+
+        /// <summary>
+        /// 0..One: высота гребня номер crest в точке z — шум вдоль гребня; около трети гребня оборвано.
+        /// Шейдер земли повторяет это по тем же номерам (HodbaRipple.hlsl).
+        /// </summary>
+        public static int CrestMask(long crest, long z, uint seed)
+        {
+            long cz = WorldPos.FloorDiv(z, CrestCellMm);
+            long t = (z - cz * CrestCellMm) * One / CrestCellMm;
+            t = (t * t >> 16) * (3 * One - 2 * t) >> 16;
+            long k = crest & CrestIndexMask;
+            long a = Hash.Q16(Hash.Cell(k, cz & CrestIndexMask, seed + 281));
+            long b = Hash.Q16(Hash.Cell(k, (cz + 1) & CrestIndexMask, seed + 281));
+            long n = a + ((b - a) * t >> 16);
+            long on = SmoothQ(n, One * 28 / 100, One * 45 / 100);
+            return (int)(on * (One / 2 + n / 2) >> 16);
         }
 
         /// <summary>Асимметричная волна 0..One: подъём на 70% длины, спад на 30%, без изломов.</summary>

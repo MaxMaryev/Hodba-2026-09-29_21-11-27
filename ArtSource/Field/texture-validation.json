@@ -16,73 +16,29 @@
         6
       ],
       "actual_height_range_mm": [
-        0.08851870335638523,
-        5.9085187911987305
+        0.08863207139074802,
+        5.908632159233093
       ],
       "seam_max": 0.0,
       "normal_convention": "+Y / OpenGL",
       "height_bit_depth": 16,
       "mean_srgb": [
-        184.00000990155218,
-        177.0000069343019,
-        167.000007401305
+        183.9999981016282,
+        177.00000693924412,
+        167.00000740576297
       ],
-      "luminance_std_ratio": 0.09222217785671988,
-      "quadrant_mean_max_deviation": 0.0014026433821310302,
-      "block_mean_max_deviation": 0.02183610200881958,
-      "height_mean": 0.5000001192092896,
-      "height_albedo_correlation_abs": 0.0027058340053207953,
+      "luminance_std_ratio": 0.091777591357151,
+      "quadrant_mean_max_deviation": 0.0001511657245741871,
+      "block_mean_max_deviation": 0.013729631900787354,
+      "height_mean": 0.5000002384185791,
+      "height_albedo_correlation_abs": 0.0022076482796804264,
       "height_derived_from_albedo": false,
       "normal_length_error": 1.1920928955078125e-07,
-      "height_one_pixel_variance": 0.0035698274253046563,
-      "albedo_one_pixel_variance": 0.03544234591090337,
-      "gradient_isotropy_max_min": 1.0487777150487392,
+      "height_one_pixel_variance": 0.003678054847969868,
+      "albedo_one_pixel_variance": 0.03578750878939915,
+      "gradient_isotropy_max_min": 1.0476483169232549,
       "dark_coverage": 0.008041842304286015,
       "light_coverage": 0.01123070472141127
-    },
-    "T2_Ripples": {
-      "size_m": [
-        4,
-        4
-      ],
-      "resolution": [
-        2048,
-        2048
-      ],
-      "height_range_mm": [
-        0,
-        12
-      ],
-      "actual_height_range_mm": [
-        0.7706465721130371,
-        10.893371343612671
-      ],
-      "seam_max": 0.0,
-      "normal_convention": "+Y / OpenGL",
-      "height_bit_depth": 16,
-      "mean_srgb": [
-        184.00000590793172,
-        177.00000625814968,
-        167.0000067643005
-      ],
-      "luminance_std_ratio": 0.02271386850616885,
-      "quadrant_mean_max_deviation": 8.473146665899378e-05,
-      "block_mean_max_deviation": 0.009904623031616211,
-      "height_mean": 0.5000002384185791,
-      "height_albedo_correlation_abs": 0.5964539304713393,
-      "height_derived_from_albedo": false,
-      "normal_length_error": 1.1920928955078125e-07,
-      "meander_wavelength_m": 0.8,
-      "meander_amplitude_m": 0.015541032390591401,
-      "branch_count_per_m2": 15.0,
-      "crest_height_modulation_fraction": 0.290454094088684,
-      "ridge_height_mm": [
-        5.036277770996094,
-        9.134330654144287
-      ],
-      "nominal_pitch_cm": 10,
-      "wind_axis": "+U",
-      "crest_axis": "V"
     },
     "T3_Crust": {
       "size_m": [

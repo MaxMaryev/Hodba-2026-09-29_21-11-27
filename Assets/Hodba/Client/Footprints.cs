@@ -161,7 +161,8 @@ namespace Hodba.Client
         Vector3 Ground(Vector3 local)
         {
             var w = _origin.ToWorld(local);
-            local.y = _world.SampleHeightMm(w) / 1000f + 0.015f;
+            long footprint = System.Math.Max(10, (long)System.Math.Round(_config.clipSpacing * 1000f));
+            local.y = _world.SampleHeightMm(w.X, w.Z, footprint) / 1000f + 0.015f;
             return local;
         }
     }

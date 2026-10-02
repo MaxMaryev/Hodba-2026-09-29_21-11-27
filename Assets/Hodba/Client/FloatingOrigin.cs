@@ -10,6 +10,7 @@ namespace Hodba.Client
     /// </summary>
     public sealed class FloatingOrigin
     {
+        /// <summary>Кратно длинам ряби (640 и 100 мм): шейдер считает её фазу от локальной x (HodbaRipple.hlsl).</summary>
         public const long SnapMm = 512_000;
         const double ShiftDistance = 1024.0;
         const long TexturePeriodMm = 4_096_000; // все тайлы земли делят 4096 м

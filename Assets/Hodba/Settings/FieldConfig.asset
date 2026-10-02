@@ -15,6 +15,8 @@ MonoBehaviour:
   seed: 1
   worldKind: 0
   debugHeadwind: 0
+  greatWallEnabled: 1
+  greatWallMaterial: {fileID: 2100000, guid: 8e8d6bfd392a71248a05b0e51635ccbc, type: 2}
   walk:
     BaseSpeed: 0.85
     AccelTime: 1.2
@@ -620,6 +622,19 @@ MonoBehaviour:
   hazeHeight: 0.12
   horizonCurve: 0.45
   starBrightness: 1.4
+  hazeForward: 0.35
+  hazeAway: 0.12
+  fogLayerHeight: 25
+  fogLayerBase: 0.45
+  fogValleyBoost: 2.5
+  fogLevelLag: 45
+  dustShadowTexture: {fileID: 2800000, guid: 21de0c258cb57284288381cfa857ffbf, type: 3}
+  dustShadowStrength: 0.35
+  dustShadowCoverage: 0.4
+  dustShadowSoftness: 0.12
+  dustShadowHeight: 400
+  dustShadowTile: 2048
+  dustShadowSpeed: 1.6
   glareExposure: 1.1
   glareBloom: 2.2
   glareRise: 1.2
@@ -628,14 +643,10 @@ MonoBehaviour:
   saturation: -12
   contrast: 8
   vignette: 0.2
-  chunkSize: 512
-  viewChunks: 6
-  lod0Distance: 800
-  lod1Distance: 1700
-  lod0Resolution: 128
-  lod1Resolution: 32
-  lod2Resolution: 8
-  chunksPerFrame: 2
+  clipLevels: 9
+  clipSpacing: 0.25
+  clipMorph: 12
+  clipShadowLevels: 2
   stoneMeshes:
   - {fileID: 4300000, guid: 8d9800b188e4596489e74bb1a047c5b8, type: 2}
   - {fileID: 4300000, guid: d9d73a3aa4f6b794ba1e035a84fd3997, type: 2}
@@ -664,9 +675,26 @@ MonoBehaviour:
   windWander: 35
   windBase: 0.35
   windGust: 0.5
-  gustPeriod: 9
-  dustCount: 300
-  dustBox: 36
+  gustFrontScale: 1024
+  windOverride: -1
+  dustCount: 1200
+  dustBox: 14
+  dustRaise: 0.2
+  saltationTexture: {fileID: 2800000, guid: 5dfc63f946c39b14fbe11499466be028, type: 3}
+  saltationThreshold: 0.3
+  saltationStrength: 1
+  saltationOpacity: 0.2
+  saltationColor: {r: 0.84, g: 0.81, b: 0.76, a: 1}
+  saltationTile: 6
+  saltationSpeed: 0.35
+  saltationDistance: 30
+  grainThreshold: 0.35
+  sprayRate: 1800
+  veilThreshold: 0.15
+  veilDensity: 0.45
+  veilTile: 14
+  veilLayers: 0
+  veilLevels: 3
   masterVolume: 0.9
   windVolume: 0.7
   stepVolume: 0.55
@@ -716,6 +744,7 @@ MonoBehaviour:
   footprintMaterial: {fileID: 2100000, guid: 326dbd3b6ff59794eb5950782716387f, type: 2}
   dustMaterial: {fileID: 2100000, guid: bc8d2c82cdd36124081e6ca22dae03b9, type: 2}
   sprayMaterial: {fileID: 2100000, guid: 84942297a49b02c4ca81cebba00fc13b, type: 2}
+  sandVeilMaterial: {fileID: 2100000, guid: 252ff17f53e485040a8c61d4bb837f11, type: 2}
   volumeProfile: {fileID: 11400000, guid: b3a8a700ffce60f41a0798caf0d12756, type: 2}
   eyeShader: {fileID: 4800000, guid: 82b3f5c37320e96418dbf3ec27597f41, type: 3}
   walkerPrefab: {fileID: 5881506588838914867, guid: 098b1554d3867654cb2673ca463c0fa0, type: 3}

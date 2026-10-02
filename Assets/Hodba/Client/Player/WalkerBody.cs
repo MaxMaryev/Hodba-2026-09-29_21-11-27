@@ -77,7 +77,9 @@ namespace Hodba.Client
             new BodyContext(dt, _time + dt, sim, world,
                 wind != null ? wind.Velocity : default, wind?.Strength ?? 0f, wind?.Gust ?? 0f,
                 clock != null ? clock.SunDirection : default, clock?.Elevation ?? 45f,
-                gaze.Yaw, gaze.Pitch, lookInput, gaze.FocusBlend);
+                gaze.Yaw, gaze.Pitch, lookInput, gaze.FocusBlend,
+                clock == null ? 1f : SunOcclusion.Visibility(world, sim.Position,
+                    world.SampleHeightMm(sim.Position.X, sim.Position.Z) / 1000f + _config.eyeHeight, clock.SunDirection));
 
         public void Tick(in BodyContext ctx)
         {

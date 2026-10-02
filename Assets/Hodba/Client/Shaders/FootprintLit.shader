@@ -90,8 +90,10 @@ Shader "Hodba/FootprintLit"
                 Light light = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 float3 V = normalize(GetCameraPositionWS() - i.positionWS);
                 half diffuse = HodbaRoughDiffuse(n, light.direction, V, _Rough, _Wrap);
-                half shade = light.shadowAttenuation * light.distanceAttenuation * HodbaDustShadow(i.positionWS);
-                half3 lighting = light.color * (diffuse * shade) + SampleSH(n);
+                half shade = light.shadowAttenuation * light.distanceAttenuation * HodbaDustShadow(i.positionWS)
+                    * HodbaWallLightVisibility(i.positionWS+n*0.2,light.direction);
+                half3 lighting = light.color * (diffuse * shade)
+                    + HodbaWallAmbientLight(SampleSH(n),i.positionWS,n,light.direction);
 
                 half3 color = HodbaApplyFog(albedo.rgb * lighting, i.positionWS);
                 return half4(color, albedo.a * i.color.a * _Strength);

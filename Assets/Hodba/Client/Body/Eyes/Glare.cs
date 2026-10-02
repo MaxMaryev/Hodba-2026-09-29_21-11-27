@@ -12,11 +12,11 @@ namespace Hodba.Client.Body
     {
         /// <summary>0..1: насколько солнце бьёт в глаз.</summary>
         /// <param name="power">Острота конуса: больше — слепит, только когда смотришь почти на солнце.</param>
-        public static float Stimulus(Vector3 view, Vector3 sunDirection, float sunElevation, float power)
+        public static float Stimulus(Vector3 view, Vector3 sunDirection, float sunElevation, float power, float sunVisibility = 1f)
         {
             float facing = Mathf.Clamp01(Vector3.Dot(view.normalized, sunDirection.normalized));
             float visible = Mathf.Clamp01((sunElevation + 1f) / 4f);
-            return Mathf.Pow(facing, power) * visible;
+            return Mathf.Pow(facing, power) * visible * Mathf.Clamp01(sunVisibility);
         }
     }
 

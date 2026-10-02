@@ -36,12 +36,12 @@ namespace Hodba.Client.Body
 
         public Irritation Sense(in BodyContext ctx, Vector3 view, in EyelidSettings s)
         {
-            Stimulus = Glare.Stimulus(view, ctx.SunDirection, ctx.SunElevation, s.sunPower);
+            Stimulus = Glare.Stimulus(view, ctx.SunDirection, ctx.SunElevation, s.sunPower, ctx.SunVisibility);
             float squint = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(s.sunThreshold, 0.8f, Stimulus));
 
             // В полдень щуришься и не глядя на солнце: вокруг всё белое.
             float noon = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(30f, 70f, ctx.SunElevation));
-            squint = Mathf.Max(squint, noon * s.middaySquint);
+            squint = Mathf.Max(squint, noon * s.middaySquint * ctx.SunVisibility);
 
             // Сквозь веки светит по-настоящему только солнце в лицо; днём в сторону — лишь тёмно-бурое.
             float daylight = Mathf.Clamp01((ctx.SunElevation + 2f) / 12f);

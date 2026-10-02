@@ -104,12 +104,11 @@ namespace Hodba.Editor
 
         // ——— земля и следы ———
 
-        /// <summary>Т1 — пепел, Т2 — рябь, Т3 — корка. В альфе альбедо — микротени, их запекает генератор текстур.</summary>
+        /// <summary>Т1 — пепел, Т3 — корка. В альфе альбедо — микротени, их запекает генератор текстур. Рябь — процедурная.</summary>
         static void AssignGround(Material ground)
         {
             ground.SetTexture("_AshAlbedo", Require("T1_Ash", "Albedo"));
             ground.SetTexture("_AshNormal", Require("T1_Ash", "Normal"));
-            ground.SetTexture("_RippleNormal", Require("T2_Ripples", "Normal"));
             ground.SetTexture("_PackedAlbedo", Require("T3_Crust", "Albedo"));
             ground.SetTexture("_PackedNormal", Require("T3_Crust", "Normal"));
             EditorUtility.SetDirty(ground);

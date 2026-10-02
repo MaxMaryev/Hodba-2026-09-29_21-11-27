@@ -28,6 +28,7 @@ namespace Hodba.Client.Body
         public readonly Vector3 SunDirection;
         /// <summary>Высота солнца, °.</summary>
         public readonly float SunElevation;
+        public readonly float SunVisibility;
 
         /// <summary>Куда игрок повернул голову, ° (0 — север).</summary>
         public readonly float HeadYaw;
@@ -41,7 +42,7 @@ namespace Hodba.Client.Body
         public BodyContext(float dt, double time, WalkSim sim, IWorldQuery world,
             Vector3 wind, float windStrength, float windGust,
             Vector3 sunDirection, float sunElevation,
-            float headYaw, float headPitch, bool lookInput, float focus)
+            float headYaw, float headPitch, bool lookInput, float focus, float sunVisibility = 1f)
         {
             Dt = dt;
             Time = time;
@@ -52,6 +53,7 @@ namespace Hodba.Client.Body
             WindGust = windGust;
             SunDirection = sunDirection;
             SunElevation = sunElevation;
+            SunVisibility = Mathf.Clamp01(sunVisibility);
             HeadYaw = headYaw;
             HeadPitch = headPitch;
             LookInput = lookInput;

@@ -127,14 +127,28 @@ namespace Hodba.Sim.Walk
             double step = Speed * dt;
             if (step <= 0) return;
 
-            Distance += step;
             _remX += dirX * step * WorldPos.MmPerMeter;
             _remZ += dirZ * step * WorldPos.MmPerMeter;
             long mx = (long)Math.Truncate(_remX);
             long mz = (long)Math.Truncate(_remZ);
             _remX -= mx;
             _remZ -= mz;
-            _position = _position.Offset(mx, mz);
+            var next = _position.Offset(mx, mz);
+            if (world is IWorldMovementQuery obstacles)
+            {
+                var resolved = obstacles.ResolveMovement(_position, next);
+                double actualX = (resolved.X - _position.X) / 1000.0;
+                double actualZ = (resolved.Z - _position.Z) / 1000.0;
+                Distance += resolved == next ? step : Math.Sqrt(actualX * actualX + actualZ * actualZ);
+                if (resolved.X != next.X) _remX = 0;
+                if (resolved.Z != next.Z) _remZ = 0;
+                _position = resolved;
+            }
+            else
+            {
+                Distance += step;
+                _position = next;
+            }
         }
 
         /// <summary>Мгновенно переставить (восстановление, фоновый путь).</summary>

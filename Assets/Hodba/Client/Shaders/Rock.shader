@@ -98,8 +98,10 @@ Shader "Hodba/Rock"
                 Light light = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half diffuse = HodbaRoughDiffuse(n, light.direction, V, _Rough, _Wrap);
                 half shade = light.shadowAttenuation * light.distanceAttenuation
-                    * HodbaMicroShadow(ao, dot(n, light.direction)) * HodbaDustShadow(i.positionWS);
-                half3 color = albedo * (light.color * (diffuse * shade) + SampleSH(n) * ao);
+                    * HodbaMicroShadow(ao, dot(n, light.direction)) * HodbaDustShadow(i.positionWS)
+                    * HodbaWallLightVisibility(i.positionWS+n*0.2,light.direction);
+                half3 color = albedo * (light.color * (diffuse * shade)
+                    + HodbaWallAmbientLight(SampleSH(n),i.positionWS,n,light.direction) * ao);
                 return half4(HodbaApplyFog(color, i.positionWS), 1);
             }
             ENDHLSL

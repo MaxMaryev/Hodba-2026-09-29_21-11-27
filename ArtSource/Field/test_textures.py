@@ -9,7 +9,6 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'Assets/Art/Field/Textures'
 MATERIALS = {
     'T1_Ash': ((2048, 2048), [184, 177, 167], 6),
-    'T2_Ripples': ((2048, 2048), [184, 177, 167], 12),
     'T3_Crust': ((2048, 2048), [140, 133, 123], 12),
     'T5_AshMicro': ((1024, 1024), [184, 177, 167], 3),
 }
@@ -104,22 +103,6 @@ def main():
                 isotropy=gradient_isotropy(decoded['Height'])
                 assert abs(result['gradient_isotropy_max_min']-isotropy)<.002, (prefix,isotropy)
                 assert isotropy<=1.15, (prefix,isotropy)
-        if prefix=='T2_Ripples':
-            power=np.abs(np.fft.rfft(decoded['Height'][...,0].mean(axis=0)))
-            frequency=int(np.argmax(power[10:100]))+10
-            pitch=4/frequency
-            assert .08<=pitch<=.12, pitch
-            assert result['ridge_height_mm'][0] >= 5
-            assert result['ridge_height_mm'][1] <= 10
-            assert .5<=result['meander_wavelength_m']<=1.0, result
-            assert .01<=result['meander_amplitude_m']<=.03, result
-            assert 5<=result['branch_count_per_m2']<=25, result
-            assert .20<=result['crest_height_modulation_fraction']<=.40, result
-            from textures import ripple_metrics
-            markers=decode(ROOT/'ArtSource/Field/Previews/T2_Ripples_BranchMarkers.png')[...,0]
-            observed=ripple_metrics(decoded['Height'][...,0],int(np.count_nonzero(markers[:-1,:-1])))
-            for key in ('meander_wavelength_m','meander_amplitude_m','branch_count_per_m2','crest_height_modulation_fraction'):
-                assert abs(observed[key]-result[key])<.002, (key,observed[key],result[key])
         if prefix == 'T3_Crust':
             assert 30 <= result['site_count'] <= 60
             assert result['site_min_spacing_m'] >= .16
@@ -150,7 +133,7 @@ def main():
     assert np.max(np.abs(right-expected))<1/255+.00001
     for suffix in ['Albedo','Height']:
         assert np.array_equal(decode(OUT/f'T4_FootprintLeft_{suffix}.png')[:,::-1],decode(OUT/f'T4_FootprintRight_{suffix}.png'))
-    print('PASS: T1/T2/T3/T5 dimensions, color statistics, 1px variance, isotropy, height, seams, normals, ripples, cracks, FFT, crops and 3x3')
+    print('PASS: T1/T3/T5 dimensions, color statistics, 1px variance, isotropy, height, seams, normals, cracks, FFT, crops and 3x3')
 
 if __name__ == '__main__':
     main()

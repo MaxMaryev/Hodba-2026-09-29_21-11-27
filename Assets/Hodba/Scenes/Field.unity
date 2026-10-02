@@ -129,6 +129,14 @@ GameObject:
   m_Component:
   - component: {fileID: 114124213}
   - component: {fileID: 114124212}
+  - component: {fileID: 114124221}
+  - component: {fileID: 114124220}
+  - component: {fileID: 114124219}
+  - component: {fileID: 114124218}
+  - component: {fileID: 114124217}
+  - component: {fileID: 114124216}
+  - component: {fileID: 114124215}
+  - component: {fileID: 114124214}
   m_Layer: 0
   m_Name: Bootstrap
   m_TagString: Untagged
@@ -164,6 +172,102 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &114124214
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114124211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46789ed3b92866b4aa7d48021671e0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Hodba.Client::Hodba.Client.BodyDebugOverlay
+--- !u!114 &114124215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114124211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46789ed3b92866b4aa7d48021671e0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Hodba.Client::Hodba.Client.BodyDebugOverlay
+--- !u!114 &114124216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114124211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46789ed3b92866b4aa7d48021671e0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Hodba.Client::Hodba.Client.BodyDebugOverlay
+--- !u!114 &114124217
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114124211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46789ed3b92866b4aa7d48021671e0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Hodba.Client::Hodba.Client.BodyDebugOverlay
+--- !u!114 &114124218
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114124211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46789ed3b92866b4aa7d48021671e0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Hodba.Client::Hodba.Client.BodyDebugOverlay
+--- !u!114 &114124219
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114124211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46789ed3b92866b4aa7d48021671e0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Hodba.Client::Hodba.Client.BodyDebugOverlay
+--- !u!114 &114124220
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114124211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46789ed3b92866b4aa7d48021671e0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Hodba.Client::Hodba.Client.BodyDebugOverlay
+--- !u!114 &114124221
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 114124211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46789ed3b92866b4aa7d48021671e0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Hodba.Client::Hodba.Client.BodyDebugOverlay
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
