@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Hodba/Scenes/Title.unity
+    guid: e196c90e7bfa81f44b2afd30b6895f64
+  - enabled: 1
     path: Assets/Hodba/Scenes/Field.unity
     guid: c3bace7f13a58084d916a6906b12d93b
   m_configObjects:

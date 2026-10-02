@@ -28,14 +28,14 @@ Material:
     - _HazeHeight: 0.12
     - _HorizonCurve: 0.45
     - _StarDensity: 0.995
-    - _StarIntensity: 0
+    - _StarIntensity: 1.4
     - _SunGlow: 1
     - _SunSize: 0.6
     m_Colors:
-    - _HazeColor: {r: 0.826672, g: 0.7485362, b: 0.65377414, a: 1}
-    - _HorizonColor: {r: 0.8778135, g: 0.7926136, b: 0.6838843, a: 1}
-    - _SunColor: {r: 1, g: 0.8219182, b: 0.6361544, a: 1}
-    - _SunDir: {r: 0.94811034, g: 0.23507585, b: -0.21407047, a: 0}
-    - _ZenithColor: {r: 0.46067715, g: 0.5322055, b: 0.6264843, a: 1}
+    - _HazeColor: {r: 0.02745098, g: 0.039215688, b: 0.0627451, a: 1}
+    - _HorizonColor: {r: 0.03137255, g: 0.043137256, b: 0.07058824, a: 1}
+    - _SunColor: {r: 0, g: 0, b: 0, a: 0}
+    - _SunDir: {r: 0.42176846, g: -0.8371547, b: 0.34825766, a: 0}
+    - _ZenithColor: {r: 0.011764706, g: 0.019607844, b: 0.039215688, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

@@ -1,3 +1,4 @@
+using System.Collections;
 using Hodba.Client.Body;
 using Hodba.Core;
 using Hodba.Sim.Walk;
@@ -12,6 +13,8 @@ namespace Hodba.Client
     /// <summary>
     /// Единственный объект сцены «Поле». Собирает мир при запуске и ведёт все системы в строгом порядке.
     /// Сцену и ассеты создаёт меню Hodba ▸ Setup Field.
+    /// Мир собирается по кадрам, чтобы заставка не замирала. Пока Holding, мир живёт под ней: рисуется
+    /// (шейдеры, текстуры, буферы прогреваются), но время стоит и ввод глух.
     /// </summary>
     public sealed class Bootstrap : MonoBehaviour
     {
@@ -46,6 +49,12 @@ namespace Hodba.Client
         bool _looking;
         float _saveTimer;
 
+        /// <summary>Заставка держит мир: он рисуется, но не идёт и не слушает ввод. Ставит Title до загрузки сцены, снимает на выходе.</summary>
+        public static bool Holding;
+
+        /// <summary>Мир собран и нарисован хотя бы раз.</summary>
+        public bool Ready { get; private set; }
+
         bool Proving => config.worldKind == WorldKind.ProvingGround;
 
         void Awake()
@@ -65,7 +74,12 @@ namespace Hodba.Client
             Screen.autorotateToLandscapeRight = true;
             Screen.orientation = ScreenOrientation.AutoRotation;
 
-            _world = Proving ? new ProvingGround(config.seed) : new FlatStub(config.seed);
+            StartCoroutine(Build());
+        }
+
+        IEnumerator Build()
+        {
+            _world =Proving ? new ProvingGround(config.seed) : new FlatStub(config.seed);
             if (!Proving && config.greatWallEnabled) _world = new GreatWallWorld(_world);
 
             var start = WorldPos.FromMeters(0, 0);
@@ -89,6 +103,7 @@ namespace Hodba.Client
             _sim = new WalkSim(config.walk, start, course);
             if (walking) _sim.Teleport(start, course, true);
             _origin = new FloatingOrigin(start);
+            yield return null;
 
             var camera = CreateCamera();
             var sun = CreateSun();
@@ -107,9 +122,11 @@ namespace Hodba.Client
             _dust = new Dust(config, _origin, _world);
             _dustShadows = new DustShadows();
             _sand = new SandDrift();
+            yield return null;
 
             _ground = new ClipmapTerrain(_world, _origin, config, config.groundMaterial, config.sandVeilMaterial);
             _ground.Update(_sim.Position);
+            yield return null;
             _stones = new StoneScatter(_world, _origin, config, config.stoneMaterial, config.boulderMaterial);
             if (_world is GreatWallWorld && config.greatWallMaterial != null)
             {
@@ -117,6 +134,7 @@ namespace Hodba.Client
                 _wall.Tick(start);
             }
             _footprints = new Footprints(_world, _origin, config, config.footprintMaterial);
+            yield return null;
 
             _windAudio = WindSynth.Create(camera.transform, config.windLoop, config.windGustLoop, config.ashHissLoop);
             _stepAudio = FootstepSynth.Create(camera.transform, config.footstepClips);
@@ -143,17 +161,28 @@ namespace Hodba.Client
             }
 
             Tick(0f);
+            yield return null;
+
+            // Сборка оставила мусор: пусть уборка случится под заставкой, а не в первых шагах.
+            System.GC.Collect();
+            Ready = true;
         }
 
-        void Update() => Tick(Mathf.Min(Time.unscaledDeltaTime, 0.1f));
+        void Update()
+        {
+            if (Ready) Tick(Holding ? 0f : Mathf.Min(Time.unscaledDeltaTime, 0.1f));
+        }
 
         void Tick(float dt)
         {
             _sim.Params = config.walk;
 
-            _input.Tick(config);
-            if (_input.Back) Minimize();
-            if (_input.CycleTime) _clock.CyclePreset();
+            if (!Holding)
+            {
+                _input.Tick(config);
+                if (_input.Back) Minimize();
+                if (_input.CycleTime) _clock.CyclePreset();
+            }
 
             // Игрок взял взгляд: глаза отдают свой взгляд голове до того, как ввод её поведёт, — без скачка.
             if (_input.Looking && !_looking) _walker.YieldEyes(_gaze);
@@ -213,12 +242,12 @@ namespace Hodba.Client
         /// <summary>Полигон не пишет в сохранение: настоящий путь путника он не трогает.</summary>
         void Save()
         {
-            if (_sim != null && !Proving) WalkerSave.Save(_sim);
+            if (Ready && !Proving) WalkerSave.Save(_sim);
         }
 
         void OnApplicationPause(bool paused)
         {
-            if (_sim == null || Proving) return;
+            if (!Ready || Proving) return;
             if (paused)
             {
                 Save();

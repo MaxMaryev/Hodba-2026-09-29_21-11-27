@@ -21,6 +21,7 @@ namespace Hodba.Editor
         const string Settings = Root + "/Settings";
         const string Generated = Root + "/Generated";
         const string ScenePath = Root + "/Scenes/Field.unity";
+        const string TitleScenePath = Root + "/Scenes/Title.unity";
         const string ConfigPath = Settings + "/FieldConfig.asset";
 
         [MenuItem("Hodba/Setup Field", priority = 0)]
@@ -39,9 +40,10 @@ namespace Hodba.Editor
 
                 EditorUtility.DisplayProgressBar("Hodba", "Сцена", 0.9f);
                 SetupScene(config);
+                SetupTitle();
 
                 AssetDatabase.SaveAssets();
-                Debug.Log($"Hodba: «Поле» готово. Пайплайн {AssetDatabase.GetAssetPath(pipeline)}, сцена {ScenePath}. Жми Play.");
+                Debug.Log($"Hodba: «Поле» готово. Пайплайн {AssetDatabase.GetAssetPath(pipeline)}, сцены {ScenePath} и {TitleScenePath}. Жми Play.");
             }
             finally
             {
@@ -285,8 +287,37 @@ namespace Hodba.Editor
             go.AddComponent<Bootstrap>().config = config;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            // В сборке одна сцена — поле.
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        }
+
+        [MenuItem("Hodba/Setup Title", priority = 2)]
+        public static void SetupTitle()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(Root + "/Client/Shaders/Title.shader");
+            if (shader == null)
+            {
+                Debug.LogError("Hodba: нет шейдера Hodba/Title.");
+                return;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(TitleScenePath));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var go = new GameObject("Title");
+            go.AddComponent<Title>().shader = shader;
+            EditorSceneManager.SaveScene(scene, TitleScenePath);
+            SetBuildScenes();
+            Debug.Log($"Hodba: заставка готова, сцена {TitleScenePath}. Открой её и жми Play: логотип, а под ним прогревается «Поле».");
+        }
+
+        /// <summary>В сборке две сцены: заставка запускает игру и догружает поле.</summary>
+        static void SetBuildScenes()
+        {
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(TitleScenePath, true),
+                new EditorBuildSettingsScene(ScenePath, true),
+            };
         }
 
         static void Set(SerializedObject so, string prop, bool value)
