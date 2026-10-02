@@ -52,18 +52,24 @@ namespace Hodba.Client.Body
 
     public sealed class WindIrritant : IEyeIrritant
     {
-        public Irritation Sense(in BodyContext ctx, Vector3 view, in EyelidSettings s)
+        /// <summary>
+        /// Сколько ветра бьёт в глаза, 0..~1.3: на него щурятся, и ровно столько же песка летит в лицо (<see cref="Dust"/>).
+        /// Дует в лицо — ветер навстречу взгляду. Сбоку — наполовину, в спину — никак.
+        /// </summary>
+        public static float Stimulus(Vector3 windVelocity, Vector3 view, float strength, float gust)
         {
-            var wind = new Vector3(ctx.Wind.x, 0f, ctx.Wind.z);
+            var wind = new Vector3(windVelocity.x, 0f, windVelocity.z);
             var flat = new Vector3(view.x, 0f, view.z);
-            if (wind.sqrMagnitude < 1e-4f || flat.sqrMagnitude < 1e-4f) return default;
+            if (wind.sqrMagnitude < 1e-4f || flat.sqrMagnitude < 1e-4f) return 0f;
 
-            // Дует в лицо — ветер навстречу взгляду. Сбоку — наполовину, в спину — никак.
             float face = Mathf.Clamp01(Vector3.Dot(-wind.normalized, flat.normalized) * 0.7f + 0.3f);
             face *= face;
-            float strength = ctx.WindStrength * ctx.WindStrength;
-            float stimulus = face * strength * (0.7f + 0.6f * ctx.WindGust);
+            return face * strength * strength * (0.7f + 0.6f * gust);
+        }
 
+        public Irritation Sense(in BodyContext ctx, Vector3 view, in EyelidSettings s)
+        {
+            float stimulus = Stimulus(ctx.Wind, view, ctx.WindStrength, ctx.WindGust);
             float squint = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.8f, stimulus)) * s.windSquint;
             return new Irritation(squint, stimulus * s.windBlink, 0f);
         }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using Hodba.Client.Body;
 using Hodba.World;
 
 namespace Hodba.Client
@@ -17,16 +18,21 @@ namespace Hodba.Client
         /// <summary>Насколько порыв у путника должен вырасти над недавним затишьем, чтобы песок ударил в лицо.</summary>
         const float BurstRise = 0.25f;
         const int BurstCount = 60;
+        /// <summary>Песок в лицо: частиц в секунду при полном ветре в глаза; начинается чуть раньше прищура.</summary>
+        const float FaceRate = 220f, FaceThreshold = 0.1f;
+        const float FaceScreenSize = 0.005f;
 
         readonly ParticleSystem _motes;
         readonly ParticleSystem _spray;
         readonly ParticleSystem _burst;
+        readonly ParticleSystem _face;
         readonly FloatingOrigin _origin;
         readonly IWorldQuery _world;
         readonly long _drawnFootprintMm;
         ParticleSystem.Particle[] _buffer = new ParticleSystem.Particle[0];
         float _gustFloor;
         float _sprayCarry;
+        float _faceCarry;
 
         public Dust(FieldConfig config, FloatingOrigin origin, IWorldQuery world)
         {
@@ -36,7 +42,8 @@ namespace Hodba.Client
             _motes = CreateMotes(config);
             _spray = CreateSpray(config);
             _burst = CreateBurst(config);
-            origin.Shifted += d => { Shift(_motes, d); Shift(_spray, d); Shift(_burst, d); };
+            _face = CreateFace(config);
+            origin.Shifted += d => { Shift(_motes, d); Shift(_spray, d); Shift(_burst, d); Shift(_face, d); };
         }
 
         /// <param name="looseness">Рыхлость земли под путником, 0..1.</param>
@@ -62,6 +69,8 @@ namespace Hodba.Client
             EmitSpray(eye + upwind * 2f, flow, config.sprayRate * sand.Grain
                 * Mathf.Lerp(0.4f, 1f, wind.Gust), dt);
             CullLandedGrains();
+
+            EmitFace(eye, flow, WindIrritant.Stimulus(flow, camera.transform.forward, wind.Strength, wind.Gust), dt);
 
             // Фронт порыва дошёл до путника: короткий налёт песчинок вокруг глаз.
             _gustFloor = Mathf.Min(_gustFloor + dt * 0.08f, wind.Gust);
@@ -91,6 +100,29 @@ namespace Hodba.Client
                     position = p,
                     velocity = flow * Random.Range(0.4f, 0.75f) + Vector3.up * Random.Range(0.35f, 0.9f),
                 }, 1);
+            }
+        }
+
+        /// <summary>
+        /// Песок прямо в глаза: штрихи по ветру вылетают из точки впереди и расходятся к краям кадра.
+        /// Столько же ветра заставляет щуриться (<see cref="WindIrritant.Stimulus"/>), поэтому прищур выглядит оправданным.
+        /// </summary>
+        void EmitFace(Vector3 eye, Vector3 flow, float stimulus, float dt)
+        {
+            float speed = flow.magnitude;
+            if (speed < 0.1f) return;
+            _faceCarry += FaceRate * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(FaceThreshold, 1f, stimulus)) * dt;
+            int count = Mathf.Min(Mathf.FloorToInt(_faceCarry), 80);
+            _faceCarry -= Mathf.Floor(_faceCarry);
+            var dir = flow / speed;
+            var side = Vector3.Cross(Vector3.up, dir);
+            for (int i = 0; i < count; i++)
+            {
+                // Наветренный конус вокруг глаз: частицы, нацеленные в точку возле лица, пролетают у самого века.
+                var p = eye - dir * Random.Range(2f, 5f) + side * Random.Range(-1.4f, 1.4f) + Vector3.up * Random.Range(-0.9f, 0.7f);
+                var aim = eye + side * Random.Range(-0.25f, 0.25f) + Vector3.up * Random.Range(-0.2f, 0.2f);
+                var v = Vector3.Lerp(dir, (aim - p).normalized, 0.5f).normalized * speed * Random.Range(1.1f, 1.5f);
+                _face.Emit(new ParticleSystem.EmitParams { position = p, velocity = v }, 1);
             }
         }
 
@@ -211,6 +243,34 @@ namespace Hodba.Client
             em.enabled = false;
 
             FadeInOut(ps, 0.1f, 0.7f);
+            ps.Play();
+            return ps;
+        }
+
+        /// <summary>Песок в лицо: быстрые штрихи; гаснут только вплотную к глазу, чтобы долетать до века.</summary>
+        ParticleSystem CreateFace(FieldConfig config)
+        {
+            var material = new Material(config.sprayMaterial) { name = "Sand Face" };
+            material.SetVector("_NearFade", new Vector4(0.06f, 0.35f, 0f, 0f));
+            var ps = NewSystem("Face Sand", material, ParticleSystemRenderMode.Stretch);
+            var r = ps.GetComponent<ParticleSystemRenderer>();
+            r.velocityScale = 0.012f;
+            r.lengthScale = 1f;
+            r.maxParticleSize = FaceScreenSize;
+
+            var main = ps.main;
+            main.loop = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.7f);
+            main.startSpeed = 0f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.004f, 0.012f);
+            main.startColor = new Color(1f, 1f, 1f, 0.55f);
+            main.maxParticles = 400;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+            var em = ps.emission;
+            em.enabled = false;
+
+            FadeInOut(ps, 0.1f, 0.85f);
             ps.Play();
             return ps;
         }

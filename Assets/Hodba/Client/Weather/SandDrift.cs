@@ -12,7 +12,7 @@ namespace Hodba.Client
     {
         public const float CoarseScale = 2.6f;
         /// <summary>Высоты оболочек взвеси над землёй, м.</summary>
-        public static readonly float[] VeilHeights = { 0.08f, 0.3f, 0.7f };
+        public static readonly float[] VeilHeights = { 0.1f, 0.5f, 1.2f };
 
         const float Roughness = 0.02f, EyeHeight = 1.5f;
 
