@@ -36,9 +36,10 @@ namespace Hodba.Client
 
         public void Tick(Wind wind, FieldConfig config, float dt)
         {
-            Veil = VeilResponse(wind.Strength, config);
-            Saltation = Response(wind.Strength, config.saltationThreshold) * config.saltationStrength;
-            Grain = Response(wind.Strength, config.grainThreshold);
+            // Песок не исчезает вместе с порывом: растёт быстро, оседает медленно.
+            Veil = Follow(Veil, VeilResponse(wind.Strength, config), dt, 0.8f, 5f);
+            Saltation = Follow(Saltation, Response(wind.Strength, config.saltationThreshold) * config.saltationStrength, dt, 0.6f, 4f);
+            Grain = Follow(Grain, Response(wind.Strength, config.grainThreshold), dt, 0.4f, 3f);
 
             float speed = wind.Velocity.magnitude;
             var step = wind.Step;
@@ -98,6 +99,10 @@ namespace Hodba.Client
         static float VeilTile(FieldConfig config) => Mathf.Max(1f, config.veilTile);
         /// <summary>Шейдер берёт языки на тайле и изгиб на тройном — сдвиг сворачивается по общему периоду.</summary>
         static float VeilPeriod(FieldConfig config) => VeilTile(config) * 3f;
+
+        /// <summary>Подтягивает значение к цели: вверх за rise секунд, вниз за fall секунд.</summary>
+        public static float Follow(float value, float target, float dt, float rise, float fall) =>
+            Mathf.Lerp(value, target, 1f - Mathf.Exp(-dt / Mathf.Max(0.02f, target > value ? rise : fall)));
 
         static double Wrap(double v, double period)
         {

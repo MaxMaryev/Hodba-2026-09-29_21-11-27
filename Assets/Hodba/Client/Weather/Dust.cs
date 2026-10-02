@@ -14,7 +14,7 @@ namespace Hodba.Client
     {
         /// <summary>Самая крупная частица на экране, доля его высоты.</summary>
         const float MaxScreenSize = 0.0015f;
-        const float MoteLifetime = 2.4f;
+        const float MoteLifetime = 4f;
         /// <summary>Насколько порыв у путника должен вырасти над недавним затишьем, чтобы песок ударил в лицо.</summary>
         const float BurstRise = 0.25f;
         const int BurstCount = 60;
@@ -32,7 +32,7 @@ namespace Hodba.Client
         ParticleSystem.Particle[] _buffer = new ParticleSystem.Particle[0];
         float _gustFloor;
         float _sprayCarry;
-        float _faceCarry;
+        float _faceCarry, _faceStimulus;
 
         public Dust(FieldConfig config, FloatingOrigin origin, IWorldQuery world)
         {
@@ -70,7 +70,10 @@ namespace Hodba.Client
                 * Mathf.Lerp(0.4f, 1f, wind.Gust), dt);
             CullLandedGrains();
 
-            EmitFace(eye, flow, WindIrritant.Stimulus(flow, camera.transform.forward, wind.Strength, wind.Gust), dt);
+            // Песок в лицо тоже оседает не сразу: порыв кончился, а в воздухе ещё висит.
+            _faceStimulus = SandDrift.Follow(_faceStimulus,
+                WindIrritant.Stimulus(flow, camera.transform.forward, wind.Strength, wind.Gust), dt, 0.3f, 2.5f);
+            EmitFace(eye, flow, _faceStimulus, dt);
 
             // Фронт порыва дошёл до путника: короткий налёт песчинок вокруг глаз.
             _gustFloor = Mathf.Min(_gustFloor + dt * 0.08f, wind.Gust);
@@ -112,14 +115,14 @@ namespace Hodba.Client
             float speed = flow.magnitude;
             if (speed < 0.1f) return;
             _faceCarry += FaceRate * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(FaceThreshold, 1f, stimulus)) * dt;
-            int count = Mathf.Min(Mathf.FloorToInt(_faceCarry), 80);
+            int count = Mathf.Min(Mathf.FloorToInt(_faceCarry), 120);
             _faceCarry -= Mathf.Floor(_faceCarry);
             var dir = flow / speed;
             var side = Vector3.Cross(Vector3.up, dir);
             for (int i = 0; i < count; i++)
             {
                 // Наветренный конус вокруг глаз: частицы, нацеленные в точку возле лица, пролетают у самого века.
-                var p = eye - dir * Random.Range(2f, 5f) + side * Random.Range(-1.4f, 1.4f) + Vector3.up * Random.Range(-0.9f, 0.7f);
+                var p = eye - dir * Random.Range(2f, 9f) + side * Random.Range(-2f, 2f) + Vector3.up * Random.Range(-1.1f, 1f);
                 var aim = eye + side * Random.Range(-0.25f, 0.25f) + Vector3.up * Random.Range(-0.2f, 0.2f);
                 var v = Vector3.Lerp(dir, (aim - p).normalized, 0.5f).normalized * speed * Random.Range(1.1f, 1.5f);
                 _face.Emit(new ParticleSystem.EmitParams { position = p, velocity = v }, 1);
@@ -260,11 +263,11 @@ namespace Hodba.Client
 
             var main = ps.main;
             main.loop = true;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.7f);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.4f);
             main.startSpeed = 0f;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.004f, 0.012f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.004f, 0.016f);
             main.startColor = new Color(1f, 1f, 1f, 0.55f);
-            main.maxParticles = 400;
+            main.maxParticles = 900;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
 
             var em = ps.emission;
